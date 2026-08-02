@@ -7,7 +7,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from config import BOT_TOKEN, ADMIN_ID
+from config import BOT_TOKEN, ADMIN_ID, CHANNEL_ID
 
 # ==========================================
 # 1. دیتابیس پیشرفته
@@ -15,10 +15,8 @@ from config import BOT_TOKEN, ADMIN_ID
 def init_db():
     conn = sqlite3.connect('bot_database.db')
     c = conn.cursor()
-    # جدول کاربران
     c.execute('CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, username TEXT, first_name TEXT, joined_at TEXT)')
-    # جدول دکمه‌های منو
-    c.execute('CREATE TABLE IF NOT EXISTS menu_buttons (id INTEGER PRIMARY KEY, parent TEXT, text TEXT, callback TEXT, content TEXT, file_id TEXT)')
+    c.execute('CREATE TABLE IF NOT EXISTS menu_buttons (id INTEGER PRIMARY KEY, parent TEXT, text TEXT, callback TEXT, content TEXT, file_id TEXT, is_locked BOOLEAN DEFAULT 0)')
     conn.commit()
     conn.close()
 
@@ -37,17 +35,17 @@ def get_total_users():
     c.execute('SELECT COUNT(*) FROM users')
     return c.fetchone()[0]
 
-def add_menu_button(parent, text, callback, content="اطلاعات در حال به‌روزرسانی.", file_id=""):
+def add_menu_button(parent, text, callback, content="اطلاعات در حال به‌روزرسانی.", file_id="", is_locked=False):
     conn = sqlite3.connect('bot_database.db')
     c = conn.cursor()
-    c.execute('INSERT OR REPLACE INTO menu_buttons (parent, text, callback, content, file_id) VALUES (?, ?, ?, ?, ?)', (parent, text, callback, content, file_id))
+    c.execute('INSERT OR REPLACE INTO menu_buttons (parent, text, callback, content, file_id, is_locked) VALUES (?, ?, ?, ?, ?, ?)', (parent, text, callback, content, file_id, is_locked))
     conn.commit()
     conn.close()
 
 def get_buttons(parent):
     conn = sqlite3.connect('bot_database.db')
     c = conn.cursor()
-    c.execute('SELECT text, callback, content, file_id FROM menu_buttons WHERE parent = ?', (parent,))
+    c.execute('SELECT text, callback, content, file_id, is_locked FROM menu_buttons WHERE parent = ?', (parent,))
     rows = c.fetchall()
     conn.close()
     return rows
@@ -55,10 +53,10 @@ def get_buttons(parent):
 def get_button_content(callback):
     conn = sqlite3.connect('bot_database.db')
     c = conn.cursor()
-    c.execute('SELECT content, file_id FROM menu_buttons WHERE callback = ?', (callback,))
+    c.execute('SELECT content, file_id, is_locked FROM menu_buttons WHERE callback = ?', (callback,))
     row = c.fetchone()
     conn.close()
-    return row if row else ("اطلاعات در دسترس نیست", "")
+    return row if row else ("اطلاعات در دسترس نیست", "", 0)
 
 def update_button_text(callback, new_text):
     conn = sqlite3.connect('bot_database.db')
@@ -71,6 +69,13 @@ def update_button_file(callback, file_id):
     conn = sqlite3.connect('bot_database.db')
     c = conn.cursor()
     c.execute('UPDATE menu_buttons SET file_id = ? WHERE callback = ?', (file_id, callback))
+    conn.commit()
+    conn.close()
+
+def update_button_lock(callback, is_locked):
+    conn = sqlite3.connect('bot_database.db')
+    c = conn.cursor()
+    c.execute('UPDATE menu_buttons SET is_locked = ? WHERE callback = ?', (is_locked, callback))
     conn.commit()
     conn.close()
 
@@ -141,7 +146,7 @@ def init_default_buttons():
 init_default_buttons()
 
 # ==========================================
-# 3. ساخت کیبورد
+# 3. ساخت کیبورد و توابع کمکی
 # ==========================================
 def build_keyboard(parent, show_back=True):
     buttons = get_buttons(parent)
@@ -150,7 +155,9 @@ def build_keyboard(parent, show_back=True):
     for i, btn in enumerate(buttons):
         text = btn[0]
         callback = btn[1]
-        row.append(InlineKeyboardButton(text=text, callback_data=callback))
+        is_locked = btn[4]
+        display_text = f"🔒 {text}" if is_locked else text
+        row.append(InlineKeyboardButton(text=display_text, callback_data=callback))
         if len(row) == 2:
             keyboard.append(row)
             row = []
@@ -159,6 +166,13 @@ def build_keyboard(parent, show_back=True):
     if show_back:
         keyboard.append([InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+async def check_membership(bot, user_id):
+    try:
+        member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
+        return member.status not in ["left", "kicked"]
+    except:
+        return False
 
 def back_btn():
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -203,22 +217,50 @@ async def go_back(callback: CallbackQuery):
 @router.callback_query(F.data.startswith(("sub_", "health_", "gen_", "bas_", "pra_", "vip_", "quiz_")))
 async def handle_dynamic_buttons(callback: CallbackQuery):
     data = callback.data
+    
     if data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip", "quizzes"]:
         await callback.message.answer("📂 منوی مربوطه:", reply_markup=build_keyboard(data), parse_mode="Markdown")
         await callback.answer()
         return
-    content, file_id = get_button_content(data)
+    
+    content, file_id, is_locked = get_button_content(data)
+    
+    # اگر دکمه قفل است و کاربر عضو کانال نیست
+    if is_locked:
+        is_member = await check_membership(callback.bot, callback.from_user.id)
+        if not is_member:
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📢 عضویت در کانال", url=f"https://t.me/{CHANNEL_ID}")],
+                [InlineKeyboardButton(text="🔄 بررسی عضویت", callback_data=f"check_{data}")]
+            ])
+            await callback.message.answer(
+                "🔒 *این محتوا قفل است!*\n\nبرای دسترسی به این بخش، لطفاً ابتدا در کانال ما عضو شوید.",
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+            await callback.answer()
+            return
+    
+    # اگر قفل نیست یا کاربر عضو است
     if file_id:
         await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
     else:
         await callback.message.answer(content, parse_mode="Markdown")
     await callback.answer()
 
-# ==========================================
-# 5. سیستم پشتیبانی و پاسخ به کاربران (حرفه‌ای)
-# ==========================================
-class AdminReplyState(StatesGroup):
-    waiting_for_reply = State()
+@router.callback_query(F.data.startswith("check_"))
+async def check_membership_after_join(callback: CallbackQuery):
+    data = callback.data.replace("check_", "")
+    is_member = await check_membership(callback.bot, callback.from_user.id)
+    if is_member:
+        content, file_id, _ = get_button_content(data)
+        if file_id:
+            await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
+        else:
+            await callback.message.answer(content, parse_mode="Markdown")
+    else:
+        await callback.message.answer("❌ شما هنوز عضو کانال نشده‌اید! لطفاً ابتدا عضو شوید.")
+    await callback.answer()
 
 @router.callback_query(F.data == "contact_instructor")
 async def contact_support(callback: CallbackQuery, state: FSMContext):
@@ -229,7 +271,6 @@ async def contact_support(callback: CallbackQuery, state: FSMContext):
 @router.message(SupportState.msg)
 async def recv_support(message: Message, state: FSMContext):
     user = message.from_user
-    # ارسال پیام به ادمین به همراه دکمه پاسخ
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💬 پاسخ به این کاربر", callback_data=f"reply_{user.id}")]
     ])
@@ -262,16 +303,19 @@ async def admin_send_reply(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "about_us")
 async def about_us(callback: CallbackQuery):
-    content, _ = get_button_content("about_us")
+    content, _, _ = get_button_content("about_us")
     await callback.message.answer(content, reply_markup=back_btn(), parse_mode="Markdown")
     await callback.answer()
 
 # ==========================================
-# 6. پنل ادمین حرفه‌ای (دکمه‌ای و کامل)
+# 5. پنل ادمین حرفه‌ای (شامل مدیریت قفل‌ها)
 # ==========================================
 class AdminState(StatesGroup):
     waiting_for_new_text = State()
     waiting_for_file = State()
+
+class AdminReplyState(StatesGroup):
+    waiting_for_reply = State()
 
 SUB_MENUS = {
     "main": "منوی اصلی",
@@ -288,6 +332,7 @@ def build_admin_main_keyboard():
         [InlineKeyboardButton(text="📊 آمار ربات", callback_data="admin_stats")],
         [InlineKeyboardButton(text="📝 ویرایش منو و دکمه‌ها", callback_data="admin_edit_menu")],
         [InlineKeyboardButton(text="📎 مدیریت فایل‌های دکمه‌ها", callback_data="admin_files")],
+        [InlineKeyboardButton(text="🔒 مدیریت قفل محتوا", callback_data="admin_locks")],
         [InlineKeyboardButton(text="💬 پشتیبانی و پاسخ به کاربران", callback_data="admin_support")]
     ])
 
@@ -300,7 +345,7 @@ async def admin_panel(message: Message):
         parse_mode="Markdown"
     )
 
-# 6-1. آمار
+# 5-1. آمار
 @router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
@@ -308,7 +353,7 @@ async def admin_stats(callback: CallbackQuery):
     await callback.message.answer(f"📊 *آمار ربات*\n\n👥 تعداد کل کاربران: *{total}* نفر", parse_mode="Markdown")
     await callback.answer()
 
-# 6-2. ویرایش منو
+# 5-2. ویرایش منو
 @router.callback_query(F.data == "admin_edit_menu")
 async def admin_edit_menu_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
@@ -353,7 +398,7 @@ async def admin_save_text(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ متن با موفقیت تغییر کرد!")
 
-# 6-3. مدیریت فایل‌ها
+# 5-3. مدیریت فایل‌ها
 @router.callback_query(F.data == "admin_files")
 async def admin_files_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
@@ -395,7 +440,40 @@ async def admin_save_file(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ فایل با موفقیت آپلود شد!")
 
-# 6-4. پشتیبانی ادمین
+# 5-4. مدیریت قفل‌ها (جدید!)
+@router.callback_query(F.data == "admin_locks")
+async def admin_locks_start(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID: return
+    await callback.message.answer("🔒 *کدام منو را می‌خواهید قفل/باز کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("adm_menu_"))
+async def admin_lock_select_menu(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID: return
+    parent = callback.data.replace("adm_menu_", "")
+    buttons = get_buttons(parent)
+    if not buttons:
+        await callback.message.answer("❌ این منو خالی است!")
+        await callback.answer()
+        return
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"{'🔒' if btn[4] else '🔓'} {btn[0]}", callback_data=f"toggle_{btn[1]}")] for btn in buttons
+    ])
+    await callback.message.answer(f"🔒 *دکمه‌های منوی `{SUB_MENUS.get(parent, parent)}`:*\n\nبرای تغییر وضعیت قفل روی هر دکمه کلیک کنید:", reply_markup=keyboard, parse_mode="Markdown")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("toggle_"))
+async def admin_toggle_lock(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID: return
+    callback_data = callback.data.replace("toggle_", "")
+    content, _, current_lock = get_button_content(callback_data)
+    new_lock = 0 if current_lock else 1
+    update_button_lock(callback_data, new_lock)
+    status = "قفل شد" if new_lock else "باز شد"
+    await callback.message.answer(f"✅ قفل دکمه `{callback_data}` با موفقیت {status}!", reply_markup=back_btn())
+    await callback.answer()
+
+# 5-5. پشتیبانی ادمین
 @router.callback_query(F.data == "admin_support")
 async def admin_support_panel(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
@@ -403,7 +481,7 @@ async def admin_support_panel(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 7. اجرا
+# 6. اجرا
 # ==========================================
 async def main():
     bot = Bot(token=BOT_TOKEN)
