@@ -225,7 +225,6 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
     
     content, file_id, is_locked = get_button_content(data)
     
-    # اگر دکمه قفل است و کاربر عضو کانال نیست
     if is_locked:
         is_member = await check_membership(callback.bot, callback.from_user.id)
         if not is_member:
@@ -241,7 +240,6 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
             await callback.answer()
             return
     
-    # اگر قفل نیست یا کاربر عضو است
     if file_id:
         await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
     else:
@@ -440,7 +438,7 @@ async def admin_save_file(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ فایل با موفقیت آپلود شد!")
 
-# 5-4. مدیریت قفل‌ها (جدید!)
+# 5-4. مدیریت قفل‌ها
 @router.callback_query(F.data == "admin_locks")
 async def admin_locks_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
