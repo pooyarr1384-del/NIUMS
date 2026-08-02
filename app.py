@@ -23,7 +23,7 @@ class AdminState(StatesGroup):
     waiting_for_file = State()
 
 # ==========================================
-# 2. دیتابیس پیشرفته (با جدول امتیازات)
+# 2. دیتابیس پیشرفته
 # ==========================================
 def init_db():
     conn = sqlite3.connect('bot_database.db')
@@ -49,6 +49,14 @@ def get_total_users():
     c.execute('SELECT COUNT(*) FROM users')
     return c.fetchone()[0]
 
+def get_all_users():
+    conn = sqlite3.connect('bot_database.db')
+    c = conn.cursor()
+    c.execute('SELECT user_id FROM users')
+    rows = c.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
+
 def get_average_rating(callback):
     conn = sqlite3.connect('bot_database.db')
     c = conn.cursor()
@@ -64,10 +72,6 @@ def save_rating(user_id, callback, rating):
     conn.commit()
     conn.close()
 
-def is_subscriber(user_id):
-    return False  # فعلاً غیرفعال، برای آینده
-
-# بقیه توابع دکمه‌ها
 def add_menu_button(parent, text, callback, content="اطلاعات در حال به‌روزرسانی.", file_id="", is_locked=False):
     conn = sqlite3.connect('bot_database.db')
     c = conn.cursor()
@@ -145,6 +149,7 @@ def init_default_buttons():
         add_menu_button("main", "👑 VIP", "sub_vip")
         add_menu_button("main", "🏥 درباره ما", "about_us")
 
+        # زیرمنوها
         add_menu_button("sub_health", "👤 فرد", "health_ind")
         add_menu_button("sub_health", "🏠 محیط", "health_env")
         add_menu_button("sub_health", "🌍 جامعه", "health_soc")
@@ -177,7 +182,7 @@ def init_default_buttons():
 init_default_buttons()
 
 # ==========================================
-# 4. ساخت کیبورد و توابع کمکی
+# 4. ساخت کیبورد
 # ==========================================
 def build_keyboard(parent, show_back=True):
     buttons = get_buttons(parent)
@@ -268,12 +273,9 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
             await callback.answer()
             return
     
-    # ===== بخش ارسال فایل و امتیازدهی =====
     if file_id:
-        # ارسال فایل به کاربر
         sent_msg = await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
         
-        # نمایش دکمه‌های امتیازدهی
         rating_keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⭐ ۱", callback_data=f"rate_{data}_1"),
              InlineKeyboardButton(text="⭐⭐ ۲", callback_data=f"rate_{data}_2"),
@@ -287,7 +289,6 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
     
     await callback.answer()
 
-# ===== هندلر دریافت امتیاز =====
 @router.callback_query(F.data.startswith("rate_"))
 async def handle_rating(callback: CallbackQuery):
     parts = callback.data.split("_")
@@ -372,7 +373,7 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 6. پنل ادمین (باقی‌مانده به همان شکل)
+# 6. پنل ادمین و ارسال اطلاعیه
 # ==========================================
 SUB_MENUS = {
     "main": "منوی اصلی",
@@ -390,6 +391,7 @@ def build_admin_main_keyboard():
         [InlineKeyboardButton(text="📝 ویرایش منو و دکمه‌ها", callback_data="admin_edit_menu")],
         [InlineKeyboardButton(text="📎 مدیریت فایل‌های دکمه‌ها", callback_data="admin_files")],
         [InlineKeyboardButton(text="🔒 مدیریت قفل محتوا", callback_data="admin_locks")],
+        [InlineKeyboardButton(text="📢 ارسال اطلاعیه به همه", callback_data="admin_broadcast")],
         [InlineKeyboardButton(text="💬 پشتیبانی و پاسخ به کاربران", callback_data="admin_support")]
     ])
 
@@ -525,6 +527,37 @@ async def admin_toggle_lock(callback: CallbackQuery):
     status = "قفل شد" if new_lock else "باز شد"
     await callback.message.answer(f"✅ قفل دکمه `{callback_data}` با موفقیت {status}!", reply_markup=back_btn())
     await callback.answer()
+
+@router.callback_query(F.data == "admin_broadcast")
+async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID: return
+    await callback.message.answer("📢 *ارسال اطلاعیه*\n\nلطفاً متن اطلاعیه را بفرستید. اگر همراه با عکس/فایل است، آن را با کپشن بفرستید.\n\nبرای لغو: /cancel")
+    await state.set_state(AdminState.waiting_for_new_text)
+    await callback.answer()
+
+@router.message(AdminState.waiting_for_new_text)
+async def admin_send_broadcast(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID: return
+    users = get_all_users()
+    count = 0
+    failed = 0
+    await message.answer(f"🔄 در حال ارسال به {len(users)} کاربر...")
+    for user_id in users:
+        try:
+            if message.text:
+                await message.bot.send_message(user_id, message.text, parse_mode="Markdown")
+            elif message.caption and (message.photo or message.document or message.video):
+                if message.photo:
+                    await message.bot.send_photo(user_id, message.photo[-1].file_id, caption=message.caption, parse_mode="Markdown")
+                elif message.document:
+                    await message.bot.send_document(user_id, message.document.file_id, caption=message.caption, parse_mode="Markdown")
+                elif message.video:
+                    await message.bot.send_video(user_id, message.video.file_id, caption=message.caption, parse_mode="Markdown")
+            count += 1
+        except:
+            failed += 1
+    await state.clear()
+    await message.answer(f"✅ ارسال کامل شد!\nموفق: {count}\nناموفق: {failed}")
 
 @router.callback_query(F.data == "admin_support")
 async def admin_support_panel(callback: CallbackQuery):
