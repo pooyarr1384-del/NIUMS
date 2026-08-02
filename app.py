@@ -23,7 +23,7 @@ class AdminState(StatesGroup):
     waiting_for_file = State()
 
 # ==========================================
-# 2. دیتابیس پیشرفته
+# 2. دیتابیس
 # ==========================================
 def init_db():
     conn = sqlite3.connect('bot_database.db')
@@ -182,7 +182,7 @@ def init_default_buttons():
 init_default_buttons()
 
 # ==========================================
-# 4. ساخت کیبورد
+# 4. ساخت کیبورد و توابع کمکی
 # ==========================================
 def build_keyboard(parent, show_back=True):
     buttons = get_buttons(parent)
@@ -216,11 +216,16 @@ def back_btn():
     ])
 
 # ==========================================
-# 5. روت‌های کاربران
+# 5. ایمپورت کردن ماشین حساب
 # ==========================================
-router = Router()
+from handlers.calculator import router as calculator_router
 
-@router.message(Command("start"))
+# ==========================================
+# 6. روت‌های اصلی کاربران
+# ==========================================
+main_router = Router()
+
+@main_router.message(Command("start"))
 async def start_cmd(message: Message):
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     
@@ -242,12 +247,12 @@ async def start_cmd(message: Message):
         parse_mode="Markdown"
     )
 
-@router.callback_query(F.data == "back_to_main")
+@main_router.callback_query(F.data == "back_to_main")
 async def go_back(callback: CallbackQuery):
     await callback.message.answer("✨ منوی اصلی:", reply_markup=build_keyboard("main"), parse_mode="Markdown")
     await callback.answer()
 
-@router.callback_query(F.data.startswith(("sub_", "health_", "gen_", "bas_", "pra_", "vip_", "quiz_")))
+@main_router.callback_query(F.data.startswith(("sub_", "health_", "gen_", "bas_", "pra_", "vip_", "quiz_")))
 async def handle_dynamic_buttons(callback: CallbackQuery):
     data = callback.data
     
@@ -280,7 +285,7 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
             [InlineKeyboardButton(text="⭐ ۱", callback_data=f"rate_{data}_1"),
              InlineKeyboardButton(text="⭐⭐ ۲", callback_data=f"rate_{data}_2"),
              InlineKeyboardButton(text="⭐⭐⭐ ۳", callback_data=f"rate_{data}_3")],
-            [InlineKeyboardButton(text="⭐⭐⭐⭐ ۴", callback_data=f"rate_{data}_4"),
+            [InlineKeyboardButton(text="⭐⭐⭐⭐ ४", callback_data=f"rate_{data}_4"),
              InlineKeyboardButton(text="⭐⭐⭐⭐⭐ ۵", callback_data=f"rate_{data}_5")]
         ])
         await callback.message.answer("📊 لطفاً به این محتوا امتیاز دهید:", reply_markup=rating_keyboard)
@@ -289,7 +294,7 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
     
     await callback.answer()
 
-@router.callback_query(F.data.startswith("rate_"))
+@main_router.callback_query(F.data.startswith("rate_"))
 async def handle_rating(callback: CallbackQuery):
     parts = callback.data.split("_")
     if len(parts) != 3: return
@@ -305,7 +310,7 @@ async def handle_rating(callback: CallbackQuery):
         await callback.message.answer("❌ امتیاز نامعتبر است.", reply_markup=back_btn())
     await callback.answer()
 
-@router.callback_query(F.data.startswith("check_"))
+@main_router.callback_query(F.data.startswith("check_"))
 async def check_membership_after_join(callback: CallbackQuery):
     data = callback.data.replace("check_", "")
     is_member = await check_membership(callback.bot, callback.from_user.id)
@@ -327,13 +332,13 @@ async def check_membership_after_join(callback: CallbackQuery):
         await callback.message.answer("❌ شما هنوز عضو کانال نشده‌اید! لطفاً ابتدا عضو شوید.")
     await callback.answer()
 
-@router.callback_query(F.data == "contact_instructor")
+@main_router.callback_query(F.data == "contact_instructor")
 async def contact_support(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("📞 لطفاً پیام خود را بنویسید و بفرستید:", reply_markup=back_btn())
     await state.set_state(SupportState.msg)
     await callback.answer()
 
-@router.message(SupportState.msg)
+@main_router.message(SupportState.msg)
 async def recv_support(message: Message, state: FSMContext):
     user = message.from_user
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -348,7 +353,7 @@ async def recv_support(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ پیام شما با موفقیت برای پشتیبان ارسال شد.", reply_markup=back_btn())
 
-@router.callback_query(F.data.startswith("reply_"))
+@main_router.callback_query(F.data.startswith("reply_"))
 async def admin_start_reply(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID: return
     user_id = int(callback.data.replace("reply_", ""))
@@ -357,7 +362,7 @@ async def admin_start_reply(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(f"📝 *پاسخ به کاربر `{user_id}`*\n\n👉 متن پاسخ خود را بنویسید و بفرستید:", parse_mode="Markdown")
     await callback.answer()
 
-@router.message(AdminReplyState.waiting_for_reply)
+@main_router.message(AdminReplyState.waiting_for_reply)
 async def admin_send_reply(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID: return
     data = await state.get_data()
@@ -366,14 +371,14 @@ async def admin_send_reply(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ پاسخ شما با موفقیت به کاربر ارسال شد!", reply_markup=back_btn())
 
-@router.callback_query(F.data == "about_us")
+@main_router.callback_query(F.data == "about_us")
 async def about_us(callback: CallbackQuery):
     content, _, _ = get_button_content("about_us")
     await callback.message.answer(content, reply_markup=back_btn(), parse_mode="Markdown")
     await callback.answer()
 
 # ==========================================
-# 6. پنل ادمین و ارسال اطلاعیه
+# 7. پنل ادمین
 # ==========================================
 SUB_MENUS = {
     "main": "منوی اصلی",
@@ -401,7 +406,7 @@ def build_admin_submenu_keyboard():
         keyboard.append([InlineKeyboardButton(text=f"📂 {title}", callback_data=f"adm_menu_{key}")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-@router.message(Command("admin"))
+@main_router.message(Command("admin"))
 async def admin_panel(message: Message):
     if message.from_user.id != ADMIN_ID: return
     await message.answer(
@@ -410,20 +415,20 @@ async def admin_panel(message: Message):
         parse_mode="Markdown"
     )
 
-@router.callback_query(F.data == "admin_stats")
+@main_router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
     total = get_total_users()
     await callback.message.answer(f"📊 *آمار ربات*\n\n👥 تعداد کل کاربران: *{total}* نفر", parse_mode="Markdown")
     await callback.answer()
 
-@router.callback_query(F.data == "admin_edit_menu")
+@main_router.callback_query(F.data == "admin_edit_menu")
 async def admin_edit_menu_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
     await callback.message.answer("📂 *کدام منو را می‌خواهید ویرایش کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
     await callback.answer()
 
-@router.callback_query(F.data.startswith("adm_menu_"))
+@main_router.callback_query(F.data.startswith("adm_menu_"))
 async def admin_edit_select_menu(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID: return
     parent = callback.data.replace("adm_menu_", "")
@@ -438,7 +443,7 @@ async def admin_edit_select_menu(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(f"📝 *دکمه‌های منوی `{SUB_MENUS.get(parent, parent)}`:*\n\nکدام دکمه را می‌خواهید ویرایش کنید؟", reply_markup=keyboard, parse_mode="Markdown")
     await callback.answer()
 
-@router.callback_query(F.data.startswith("edit_"))
+@main_router.callback_query(F.data.startswith("edit_"))
 async def admin_edit_selected(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID: return
     callback_data = callback.data.replace("edit_", "")
@@ -447,7 +452,7 @@ async def admin_edit_selected(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(f"📝 کد دکمه `{callback_data}` انتخاب شد.\n\n👉 حالا *متن جدید* را بفرستید:")
     await callback.answer()
 
-@router.message(AdminState.waiting_for_new_text)
+@main_router.message(AdminState.waiting_for_new_text)
 async def admin_save_text(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID: return
     data = await state.get_data()
@@ -455,13 +460,13 @@ async def admin_save_text(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ متن با موفقیت تغییر کرد!")
 
-@router.callback_query(F.data == "admin_files")
+@main_router.callback_query(F.data == "admin_files")
 async def admin_files_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
     await callback.message.answer("📂 *برای کدام منو می‌خواهید فایل آپلود کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
     await callback.answer()
 
-@router.callback_query(F.data.startswith("adm_menu_"))
+@main_router.callback_query(F.data.startswith("adm_menu_"))
 async def admin_file_select_menu(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID: return
     parent = callback.data.replace("adm_menu_", "")
@@ -476,7 +481,7 @@ async def admin_file_select_menu(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(f"📎 *دکمه‌های منوی `{SUB_MENUS.get(parent, parent)}`:*\n\nبرای کدام دکمه فایل می‌خواهید؟", reply_markup=keyboard, parse_mode="Markdown")
     await callback.answer()
 
-@router.callback_query(F.data.startswith("upload_"))
+@main_router.callback_query(F.data.startswith("upload_"))
 async def admin_upload_selected(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID: return
     callback_data = callback.data.replace("upload_", "")
@@ -485,7 +490,7 @@ async def admin_upload_selected(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(f"📎 کد دکمه `{callback_data}` انتخاب شد.\n\n👉 حالا فایل (PDF) را بفرستید:")
     await callback.answer()
 
-@router.message(AdminState.waiting_for_file)
+@main_router.message(AdminState.waiting_for_file)
 async def admin_save_file(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID: return
     if not message.document:
@@ -496,13 +501,13 @@ async def admin_save_file(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ فایل با موفقیت آپلود شد!")
 
-@router.callback_query(F.data == "admin_locks")
+@main_router.callback_query(F.data == "admin_locks")
 async def admin_locks_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
     await callback.message.answer("🔒 *کدام منو را می‌خواهید قفل/باز کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
     await callback.answer()
 
-@router.callback_query(F.data.startswith("adm_menu_"))
+@main_router.callback_query(F.data.startswith("adm_menu_"))
 async def admin_lock_select_menu(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
     parent = callback.data.replace("adm_menu_", "")
@@ -517,7 +522,7 @@ async def admin_lock_select_menu(callback: CallbackQuery):
     await callback.message.answer(f"🔒 *دکمه‌های منوی `{SUB_MENUS.get(parent, parent)}`:*\n\nبرای تغییر وضعیت قفل روی هر دکمه کلیک کنید:", reply_markup=keyboard, parse_mode="Markdown")
     await callback.answer()
 
-@router.callback_query(F.data.startswith("toggle_"))
+@main_router.callback_query(F.data.startswith("toggle_"))
 async def admin_toggle_lock(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
     callback_data = callback.data.replace("toggle_", "")
@@ -528,14 +533,14 @@ async def admin_toggle_lock(callback: CallbackQuery):
     await callback.message.answer(f"✅ قفل دکمه `{callback_data}` با موفقیت {status}!", reply_markup=back_btn())
     await callback.answer()
 
-@router.callback_query(F.data == "admin_broadcast")
+@main_router.callback_query(F.data == "admin_broadcast")
 async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID: return
     await callback.message.answer("📢 *ارسال اطلاعیه*\n\nلطفاً متن اطلاعیه را بفرستید. اگر همراه با عکس/فایل است، آن را با کپشن بفرستید.\n\nبرای لغو: /cancel")
     await state.set_state(AdminState.waiting_for_new_text)
     await callback.answer()
 
-@router.message(AdminState.waiting_for_new_text)
+@main_router.message(AdminState.waiting_for_new_text)
 async def admin_send_broadcast(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID: return
     users = get_all_users()
@@ -559,19 +564,23 @@ async def admin_send_broadcast(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(f"✅ ارسال کامل شد!\nموفق: {count}\nناموفق: {failed}")
 
-@router.callback_query(F.data == "admin_support")
+@main_router.callback_query(F.data == "admin_support")
 async def admin_support_panel(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
     await callback.message.answer("💬 *بخش پشتیبانی*\n\nوقتی کاربری به شما پیام می‌دهد، زیر پیام او در این ربات یک دکمه `پاسخ` ظاهر می‌شود. با کلیک روی آن می‌توانید پاسخ دهید.", parse_mode="Markdown")
     await callback.answer()
 
 # ==========================================
-# 7. اجرا
+# 8. اجرای نهایی
 # ==========================================
 async def main():
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
-    dp.include_router(router)
+    
+    # اضافه کردن روتر ماشین حساب
+    dp.include_router(calculator_router)
+    dp.include_router(main_router)
+    
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
