@@ -93,7 +93,6 @@ init_db()
 # ==========================================
 def init_default_buttons():
     if not get_buttons("main"):
-        # دکمه‌های اصلی
         add_menu_button("main", "🫀 داخلی - جراحی", "sub_internal")
         add_menu_button("main", "🍼 کودکان", "sub_pediatric")
         add_menu_button("main", "👴 سالمندان", "sub_geriatric")
@@ -306,7 +305,7 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 5. پنل ادمین حرفه‌ای (شامل مدیریت قفل‌ها)
+# 5. پنل ادمین حرفه‌ای
 # ==========================================
 class AdminState(StatesGroup):
     waiting_for_new_text = State()
@@ -343,7 +342,6 @@ async def admin_panel(message: Message):
         parse_mode="Markdown"
     )
 
-# 5-1. آمار
 @router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
@@ -351,7 +349,6 @@ async def admin_stats(callback: CallbackQuery):
     await callback.message.answer(f"📊 *آمار ربات*\n\n👥 تعداد کل کاربران: *{total}* نفر", parse_mode="Markdown")
     await callback.answer()
 
-# 5-2. ویرایش منو
 @router.callback_query(F.data == "admin_edit_menu")
 async def admin_edit_menu_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
@@ -396,7 +393,6 @@ async def admin_save_text(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ متن با موفقیت تغییر کرد!")
 
-# 5-3. مدیریت فایل‌ها
 @router.callback_query(F.data == "admin_files")
 async def admin_files_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
@@ -438,7 +434,6 @@ async def admin_save_file(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ فایل با موفقیت آپلود شد!")
 
-# 5-4. مدیریت قفل‌ها
 @router.callback_query(F.data == "admin_locks")
 async def admin_locks_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
@@ -471,7 +466,6 @@ async def admin_toggle_lock(callback: CallbackQuery):
     await callback.message.answer(f"✅ قفل دکمه `{callback_data}` با موفقیت {status}!", reply_markup=back_btn())
     await callback.answer()
 
-# 5-5. پشتیبانی ادمین
 @router.callback_query(F.data == "admin_support")
 async def admin_support_panel(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
