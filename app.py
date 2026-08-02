@@ -162,7 +162,7 @@ class SupportState(StatesGroup):
 async def start_cmd(message: Message):
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     await message.answer_photo(
-        photo="https://img.freepik.com/free-vector/flat-design-nurse-concept-illustration_23-2149185896.jpg",
+        photo="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?q=80&w=1000&auto=format&fit=crop",
         caption=f"🌸 *سلام {message.from_user.first_name} عزیز!*\n\n👩‍⚕️ به آکادمی پرستاری خوش آمدید!",
         reply_markup=build_keyboard("main"),
         parse_mode="Markdown"
