@@ -148,7 +148,6 @@ def init_default_buttons():
         add_menu_button("main", "📞 پشتیبانی", "contact_instructor")
         add_menu_button("main", "👑 VIP", "sub_vip")
         add_menu_button("main", "🏥 درباره ما", "about_us")
-        # دکمه جدید ماشین حساب
         add_menu_button("main", "🧮 ماشین حساب پرستاری", "calculator_menu")
 
         # زیرمنوها
@@ -184,7 +183,7 @@ def init_default_buttons():
 init_default_buttons()
 
 # ==========================================
-# 4. ساخت کیبورد و توابع کمکی
+# 4. ساخت کیبورد
 # ==========================================
 def build_keyboard(parent, show_back=True):
     buttons = get_buttons(parent)
@@ -218,12 +217,7 @@ def back_btn():
     ])
 
 # ==========================================
-# 5. ایمپورت کردن روتر ماشین حساب
-# ==========================================
-from handlers.calculator import router as calculator_router
-
-# ==========================================
-# 6. روت‌های اصلی کاربران
+# 5. روت‌های اصلی کاربران
 # ==========================================
 main_router = Router()
 
@@ -296,16 +290,103 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
     
     await callback.answer()
 
-# --- هندلر اختصاصی برای دکمه ماشین حساب ---
+# --- هندلر اختصاصی دکمه ماشین حساب (مستقیم و بدون دستور) ---
 @main_router.callback_query(F.data == "calculator_menu")
-async def open_calculator(callback: CallbackQuery):
+async def open_calculator_menu(callback: CallbackQuery):
+    calc_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🧮 محاسبه BMI", callback_data="calc_bmi"),
+         InlineKeyboardButton(text="💊 دوز دارو", callback_data="calc_drug")],
+        [InlineKeyboardButton(text="💧 مایعات وریدی", callback_data="calc_fluid"),
+         InlineKeyboardButton(text="🔙 بازگشت", callback_data="back_to_main")]
+    ])
     await callback.message.answer(
-        "🧮 *ماشین حساب پرستاری*\n\nبرای استفاده از هر کدام، دستور زیر را در ربات بفرستید:\n\n"
-        "🔹 `/calc` برای باز کردن منوی ماشین حساب",
+        "🧮 *ماشین حساب پرستاری*\n\nیکی از ابزارهای زیر را انتخاب کنید:",
+        reply_markup=calc_keyboard,
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+# --- هندلرهای محاسبه‌گر ---
+@main_router.callback_query(F.data == "calc_bmi")
+async def calc_bmi(callback: CallbackQuery):
+    await callback.message.answer(
+        "📝 *محاسبه BMI*\n\nلطفاً وزن (کیلوگرم) و قد (متر) را به ترتیب با فاصله بفرستید.\nمثال: ۷۵ ۱.۷۵",
         reply_markup=back_btn(),
         parse_mode="Markdown"
     )
     await callback.answer()
+
+@main_router.callback_query(F.data == "calc_drug")
+async def calc_drug(callback: CallbackQuery):
+    await callback.message.answer(
+        "💊 *محاسبه دوز دارو*\n\nلطفاً این ۳ عدد را با فاصله بفرستید:\n۱. دوز تجویزی (mg/kg)\n۲. وزن بیمار (kg)\n۳. غلظت دارو (mg/ml)\n\nمثال: ۵ ۷۰ ۱۰",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+@main_router.callback_query(F.data == "calc_fluid")
+async def calc_fluid(callback: CallbackQuery):
+    await callback.message.answer(
+        "💧 *محاسبه مایعات وریدی*\n\nلطفاً وزن بیمار (کیلوگرم) را بفرستید.",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+# --- هندلر دریافت اعداد و محاسبه ---
+@main_router.message(F.text.regexp(r'^\d+(\.\d+)?(\s+\d+(\.\d+)?)*$'))
+async def handle_calc_input(message: Message):
+    numbers = list(map(float, message.text.split()))
+    
+    if len(numbers) == 1:
+        # محاسبه مایعات
+        weight = numbers[0]
+        if weight <= 10:
+            fluid = weight * 100
+        elif weight <= 20:
+            fluid = 1000 + (weight - 10) * 50
+        else:
+            fluid = 1500 + (weight - 20) * 20
+        await message.answer(
+            f"💧 *نتیجه مایعات وریدی*\n\n"
+            f"وزن بیمار: {weight} kg\n"
+            f"┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n"
+            f"✅ مایعات مورد نیاز روزانه: *{fluid} ml*",
+            parse_mode="Markdown"
+        )
+
+    elif len(numbers) == 2:
+        # محاسبه BMI
+        weight, height = numbers[0], numbers[1]
+        if height > 3:  # اگر قد به سانتی‌متر وارد شده باشد
+            height = height / 100
+        bmi = weight / (height ** 2)
+        category = "لاغر" if bmi < 18.5 else "نرمال" if bmi < 25 else "اضافه وزن" if bmi < 30 else "چاق"
+        await message.answer(
+            f"🧮 *نتیجه BMI*\n\n"
+            f"وزن: {weight} کیلوگرم\n"
+            f"قد: {height} متر\n"
+            f"شاخص BMI: *{bmi:.2f}*\n"
+            f"وضعیت: {category}",
+            parse_mode="Markdown"
+        )
+
+    elif len(numbers) == 3:
+        # محاسبه دوز دارو
+        dose_per_kg, weight, concentration = numbers[0], numbers[1], numbers[2]
+        total_dose = dose_per_kg * weight
+        volume_ml = total_dose / concentration
+        await message.answer(
+            f"💊 *نتیجه دوز دارو*\n\n"
+            f"دوز تجویزی: {dose_per_kg} mg/kg\n"
+            f"وزن بیمار: {weight} kg\n"
+            f"غلظت ویال: {concentration} mg/ml\n"
+            f"┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n"
+            f"✅ دوز کل مورد نیاز: *{total_dose} mg*\n"
+            f"✅ حجم مورد نیاز از ویال: *{volume_ml:.2f} ml*",
+            parse_mode="Markdown"
+        )
 
 @main_router.callback_query(F.data.startswith("rate_"))
 async def handle_rating(callback: CallbackQuery):
@@ -391,7 +472,7 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 7. پنل ادمین
+# 6. پنل ادمین
 # ==========================================
 SUB_MENUS = {
     "main": "منوی اصلی",
@@ -584,16 +665,12 @@ async def admin_support_panel(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 8. اجرای نهایی
+# 7. اجرای نهایی
 # ==========================================
 async def main():
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
-    
-    # اضافه کردن روتر ماشین حساب
-    dp.include_router(calculator_router)
     dp.include_router(main_router)
-    
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
