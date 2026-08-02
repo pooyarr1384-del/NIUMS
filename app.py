@@ -148,6 +148,8 @@ def init_default_buttons():
         add_menu_button("main", "📞 پشتیبانی", "contact_instructor")
         add_menu_button("main", "👑 VIP", "sub_vip")
         add_menu_button("main", "🏥 درباره ما", "about_us")
+        # دکمه جدید ماشین حساب
+        add_menu_button("main", "🧮 ماشین حساب پرستاری", "calculator_menu")
 
         # زیرمنوها
         add_menu_button("sub_health", "👤 فرد", "health_ind")
@@ -216,7 +218,7 @@ def back_btn():
     ])
 
 # ==========================================
-# 5. ایمپورت کردن ماشین حساب
+# 5. ایمپورت کردن روتر ماشین حساب
 # ==========================================
 from handlers.calculator import router as calculator_router
 
@@ -285,13 +287,24 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
             [InlineKeyboardButton(text="⭐ ۱", callback_data=f"rate_{data}_1"),
              InlineKeyboardButton(text="⭐⭐ ۲", callback_data=f"rate_{data}_2"),
              InlineKeyboardButton(text="⭐⭐⭐ ۳", callback_data=f"rate_{data}_3")],
-            [InlineKeyboardButton(text="⭐⭐⭐⭐ ४", callback_data=f"rate_{data}_4"),
+            [InlineKeyboardButton(text="⭐⭐⭐⭐ ۴", callback_data=f"rate_{data}_4"),
              InlineKeyboardButton(text="⭐⭐⭐⭐⭐ ۵", callback_data=f"rate_{data}_5")]
         ])
         await callback.message.answer("📊 لطفاً به این محتوا امتیاز دهید:", reply_markup=rating_keyboard)
     else:
         await callback.message.answer(content, parse_mode="Markdown")
     
+    await callback.answer()
+
+# --- هندلر اختصاصی برای دکمه ماشین حساب ---
+@main_router.callback_query(F.data == "calculator_menu")
+async def open_calculator(callback: CallbackQuery):
+    await callback.message.answer(
+        "🧮 *ماشین حساب پرستاری*\n\nبرای استفاده از هر کدام، دستور زیر را در ربات بفرستید:\n\n"
+        "🔹 `/calc` برای باز کردن منوی ماشین حساب",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
     await callback.answer()
 
 @main_router.callback_query(F.data.startswith("rate_"))
