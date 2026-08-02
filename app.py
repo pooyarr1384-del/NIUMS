@@ -130,6 +130,7 @@ init_db()
 # ==========================================
 def init_default_buttons():
     if not get_buttons("main"):
+        # دکمه‌های اصلی
         add_menu_button("main", "🫀 داخلی - جراحی", "sub_internal")
         add_menu_button("main", "🍼 کودکان", "sub_pediatric")
         add_menu_button("main", "👴 سالمندان", "sub_geriatric")
@@ -148,7 +149,16 @@ def init_default_buttons():
         add_menu_button("main", "📞 پشتیبانی", "contact_instructor")
         add_menu_button("main", "👑 VIP", "sub_vip")
         add_menu_button("main", "🏥 درباره ما", "about_us")
-        add_menu_button("main", "🧮 ماشین حساب پرستاری", "calculator_menu")
+        add_menu_button("main", "🧰 جعبه ابزار پرستاری", "toolbox")
+
+        # زیردکمه‌های جعبه ابزار
+        add_menu_button("toolbox", "🧮 ماشین حساب", "tool_calc")
+        add_menu_button("toolbox", "📏 تبدیل واحدها", "tool_convert")
+        add_menu_button("toolbox", "💧 مایعات وریدی", "tool_fluid")
+        add_menu_button("toolbox", "🩸 قطره‌چکان (IV Drip)", "tool_drip")
+        add_menu_button("toolbox", "💊 جدول مرجع داروها", "tool_drugs")
+        add_menu_button("toolbox", "📋 راهنمای مهارت‌ها", "tool_skills")
+        add_menu_button("toolbox", "🔙 بازگشت", "back_to_main")
 
         # زیرمنوها
         add_menu_button("sub_health", "👤 فرد", "health_ind")
@@ -252,7 +262,7 @@ async def go_back(callback: CallbackQuery):
 async def handle_dynamic_buttons(callback: CallbackQuery):
     data = callback.data
     
-    if data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip", "quizzes"]:
+    if data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip", "quizzes", "toolbox"]:
         await callback.message.answer("📂 منوی مربوطه:", reply_markup=build_keyboard(data), parse_mode="Markdown")
         await callback.answer()
         return
@@ -290,14 +300,17 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
     
     await callback.answer()
 
-# --- هندلر اختصاصی دکمه ماشین حساب (مستقیم و بدون دستور) ---
-@main_router.callback_query(F.data == "calculator_menu")
-async def open_calculator_menu(callback: CallbackQuery):
+# ==========================================
+# 6. هندلرهای اختصاصی جعبه ابزار
+# ==========================================
+
+# --- ماشین حساب ---
+@main_router.callback_query(F.data == "tool_calc")
+async def tool_calculator(callback: CallbackQuery):
     calc_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🧮 محاسبه BMI", callback_data="calc_bmi"),
          InlineKeyboardButton(text="💊 دوز دارو", callback_data="calc_drug")],
-        [InlineKeyboardButton(text="💧 مایعات وریدی", callback_data="calc_fluid"),
-         InlineKeyboardButton(text="🔙 بازگشت", callback_data="back_to_main")]
+        [InlineKeyboardButton(text="🔙 بازگشت به جعبه ابزار", callback_data="toolbox")]
     ])
     await callback.message.answer(
         "🧮 *ماشین حساب پرستاری*\n\nیکی از ابزارهای زیر را انتخاب کنید:",
@@ -306,7 +319,74 @@ async def open_calculator_menu(callback: CallbackQuery):
     )
     await callback.answer()
 
-# --- هندلرهای محاسبه‌گر ---
+# --- تبدیل واحدها ---
+@main_router.callback_query(F.data == "tool_convert")
+async def tool_converter(callback: CallbackQuery):
+    await callback.message.answer(
+        "📏 *تبدیل واحدهای پزشکی*\n\n"
+        "برای تبدیل واحد، یکی از فرمت‌های زیر را بفرستید:\n\n"
+        "🔹 میلی‌گرم به میکروگرم: `mg mcg [مقدار]`\n"
+        "🔹 سانتی‌گراد به فارنهایت: `c f [مقدار]`\n"
+        "🔹 سی‌سی به قطره: `ml drop [مقدار]`\n\n"
+        "مثال: `mg mcg 500`",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+# --- مایعات وریدی ---
+@main_router.callback_query(F.data == "tool_fluid")
+async def tool_fluid(callback: CallbackQuery):
+    await callback.message.answer(
+        "💧 *محاسبه مایعات وریدی*\n\nلطفاً وزن بیمار (کیلوگرم) را بفرستید.",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+# --- قطره‌چکان (IV Drip) ---
+@main_router.callback_query(F.data == "tool_drip")
+async def tool_drip(callback: CallbackQuery):
+    await callback.message.answer(
+        "🩸 *محاسبه قطره‌چکان (IV Drip Rate)*\n\n"
+        "لطفاً ۳ عدد زیر را با فاصله بفرستید:\n"
+        "۱. حجم سرم (ml)\n"
+        "۲. فاکتور قطره (مثلاً ۱۰، ۱۵ یا ۲۰)\n"
+        "۳. زمان (ساعت)\n\n"
+        "مثال: `1000 20 8`",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+# --- جدول مرجع داروها ---
+@main_router.callback_query(F.data == "tool_drugs")
+async def tool_drugs(callback: CallbackQuery):
+    await callback.message.answer(
+        "💊 *جدول مرجع داروها*\n\n"
+        "نام دارو را بفرستید تا اطلاعات آن را به شما بگویم.\n"
+        "مثال: `اپی‌نفرین`",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+# --- راهنمای مهارت‌ها ---
+@main_router.callback_query(F.data == "tool_skills")
+async def tool_skills(callback: CallbackQuery):
+    await callback.message.answer(
+        "📋 *راهنمای گام‌به‌گام مهارت‌ها*\n\n"
+        "نام مهارت مورد نظر را بفرستید.\n"
+        "مثال: `پانسمان`",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+# ==========================================
+# 7. هندلرهای محاسبه‌گر و جستجو
+# ==========================================
+
 @main_router.callback_query(F.data == "calc_bmi")
 async def calc_bmi(callback: CallbackQuery):
     await callback.message.answer(
@@ -325,16 +405,6 @@ async def calc_drug(callback: CallbackQuery):
     )
     await callback.answer()
 
-@main_router.callback_query(F.data == "calc_fluid")
-async def calc_fluid(callback: CallbackQuery):
-    await callback.message.answer(
-        "💧 *محاسبه مایعات وریدی*\n\nلطفاً وزن بیمار (کیلوگرم) را بفرستید.",
-        reply_markup=back_btn(),
-        parse_mode="Markdown"
-    )
-    await callback.answer()
-
-# --- هندلر دریافت اعداد و محاسبه ---
 @main_router.message(F.text.regexp(r'^\d+(\.\d+)?(\s+\d+(\.\d+)?)*$'))
 async def handle_calc_input(message: Message):
     numbers = list(map(float, message.text.split()))
@@ -387,6 +457,85 @@ async def handle_calc_input(message: Message):
             f"✅ حجم مورد نیاز از ویال: *{volume_ml:.2f} ml*",
             parse_mode="Markdown"
         )
+    
+    elif len(numbers) == 3 and message.text.lower().startswith("mg mcg"):
+        parts = message.text.split()
+        if len(parts) == 3:
+            val = float(parts[2])
+            result = val * 1000
+            await message.answer(f"📏 {val} mg = *{result} mcg*", parse_mode="Markdown")
+    
+    elif len(numbers) == 3 and message.text.lower().startswith("c f"):
+        parts = message.text.split()
+        if len(parts) == 3:
+            c = float(parts[2])
+            f = (c * 9/5) + 32
+            await message.answer(f"📏 {c}°C = *{f:.1f}°F*", parse_mode="Markdown")
+
+    elif len(numbers) == 3 and message.text.lower().startswith("ml drop"):
+        parts = message.text.split()
+        if len(parts) == 3:
+            ml = float(parts[2])
+            drops = ml * 20
+            await message.answer(f"📏 {ml} ml = *{drops} قطره*", parse_mode="Markdown")
+
+# --- هندلر قطره‌چکان ---
+@main_router.message(F.text.regexp(r'^\d+(\.\d+)?(\s+\d+(\.\d+)?)*$'))
+async def handle_drip_input(message: Message):
+    numbers = list(map(float, message.text.split()))
+    if len(numbers) == 3:
+        volume, drop_factor, hours = numbers[0], numbers[1], numbers[2]
+        drops_per_min = (volume * drop_factor) / (hours * 60)
+        await message.answer(
+            f"🩸 *نتیجه قطره‌چکان*\n\n"
+            f"حجم سرم: {volume} ml\n"
+            f"فاکتور قطره: {drop_factor}\n"
+            f"زمان: {hours} ساعت\n"
+            f"┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n"
+            f"✅ قطره در دقیقه: *{drops_per_min:.0f} gtt/min*",
+            parse_mode="Markdown"
+        )
+
+# --- هندلر جستجوی دارو و مهارت ---
+@main_router.message(F.text)
+async def search_drug_skill(message: Message):
+    # اگر کاربر در حالت جعبه ابزار نباشد، کاری نکن
+    if not message.text:
+        return
+    
+    # خواندن فایل داروها
+    try:
+        with open("drugs.txt", "r", encoding="utf-8") as f:
+            drugs = f.readlines()
+        for line in drugs:
+            if ":" in line:
+                name, desc = line.split(":", 1)
+                if name.strip() == message.text.strip():
+                    await message.answer(
+                        f"💊 *اطلاعات دارو: {name.strip()}*\n\n{desc.strip()}",
+                        parse_mode="Markdown"
+                    )
+                    return
+    except FileNotFoundError:
+        pass
+    
+    # خواندن فایل مهارت‌ها
+    try:
+        with open("skills.txt", "r", encoding="utf-8") as f:
+            skills = f.readlines()
+        for line in skills:
+            if ":" in line:
+                name, desc = line.split(":", 1)
+                if name.strip() == message.text.strip():
+                    await message.answer(
+                        f"📋 *راهنمای مهارت: {name.strip()}*\n\n{desc.strip()}",
+                        parse_mode="Markdown"
+                    )
+                    return
+    except FileNotFoundError:
+        pass
+    
+    await message.answer("❌ موردی با این نام در پایگاه داده یافت نشد. لطفاً از فهرست داروها یا مهارت‌های موجود استفاده کنید.")
 
 @main_router.callback_query(F.data.startswith("rate_"))
 async def handle_rating(callback: CallbackQuery):
@@ -472,7 +621,7 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 6. پنل ادمین
+# 8. پنل ادمین
 # ==========================================
 SUB_MENUS = {
     "main": "منوی اصلی",
@@ -481,7 +630,8 @@ SUB_MENUS = {
     "sub_basic_science": "زیرمنوی علوم پایه",
     "sub_practice": "زیرمنوی پراتیک و کارآموزی",
     "sub_vip": "زیرمنوی VIP",
-    "quizzes": "زیرمنوی آزمون‌ها"
+    "quizzes": "زیرمنوی آزمون‌ها",
+    "toolbox": "جعبه ابزار پرستاری"
 }
 
 def build_admin_main_keyboard():
@@ -665,7 +815,7 @@ async def admin_support_panel(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 7. اجرای نهایی
+# 9. اجرای نهایی
 # ==========================================
 async def main():
     bot = Bot(token=BOT_TOKEN)
