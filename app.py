@@ -177,8 +177,6 @@ def init_default_buttons():
         add_menu_button("sub_vip", "📝 آزمون ویژه", "vip_quiz")
         add_menu_button("quizzes", "📝 آزمون اصول و فنون", "quiz_fundamentals")
 
-init_default_buttons()
-
 # ==========================================
 # روت‌ها
 # ==========================================
