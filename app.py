@@ -1,6 +1,6 @@
 import asyncio
-import sqlite3
-from datetime import datetime
+import sys
+import os
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
@@ -8,6 +8,16 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from config import BOT_TOKEN, ADMIN_ID, CHANNEL_ID
+
+# ==========================================
+# تشخیص محیط اجرا (لوکال یا سرور)
+# ==========================================
+IS_LOCAL = os.environ.get("RAILWAY_ENVIRONMENT") is None
+
+if IS_LOCAL:
+    print("⚠️ هشدار: ربات روی کامپیوتر شخصی (لوکال) اجرا شد!")
+    print("✅ اما چون سرور Railway روشن است، ربات به طور خودکار متوقف می‌شود تا تداخل پیش نیاید.")
+    sys.exit()
 
 # ==========================================
 # 1. کلاس‌های State
