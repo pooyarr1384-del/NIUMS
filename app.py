@@ -47,7 +47,6 @@ init_db()
 # === کیبوردهای فشرده و مرتب ===
 
 def main_menu():
-    # دکمه‌ها به صورت جفت‌جفت (۲ ستونه) چیده شده‌اند تا کوتاه شوند
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🫀 داخلی - جراحی", callback_data="sub_internal"),
          InlineKeyboardButton(text="🍼 کودکان", callback_data="sub_pediatric")],
@@ -70,7 +69,6 @@ def main_menu():
         [InlineKeyboardButton(text="📖 دروس عمومی/زبان", callback_data="sub_general"),
          InlineKeyboardButton(text="🏥 پراتیک و کارآموزی", callback_data="sub_practice")],
         
-        # بخش دوم: دکمه‌های اصلی در یک ردیف ۳ ستونه (برای کوتاه‌تر شدن)
         [InlineKeyboardButton(text="🎓 آزمون‌ها", callback_data="quizzes"),
          InlineKeyboardButton(text="📞 پشتیبانی", callback_data="contact_instructor"),
          InlineKeyboardButton(text="👑 VIP", callback_data="sub_vip")],
@@ -102,7 +100,6 @@ def general_menu():
     ])
 
 def basic_menu():
-    # برای جلوگیری از طولانی شدن، علوم پایه را ۳ ستونه کرده‌ام
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🥗 تغذیه", callback_data="bas_nut"),
          InlineKeyboardButton(text="💊 فارماکولوژی", callback_data="bas_phar"),
@@ -161,38 +158,39 @@ async def start_cmd(message: Message):
 
 @router.callback_query(F.data == "back_to_main")
 async def go_back(callback: CallbackQuery):
-    await callback.message.edit_text("✨ منوی اصلی:", reply_markup=main_menu(), parse_mode="Markdown")
+    # تغییر: به جای edit_text از answer استفاده میکنیم
+    await callback.message.answer("✨ منوی اصلی:", reply_markup=main_menu(), parse_mode="Markdown")
     await callback.answer()
 
 # هندلرهای باز کردن زیرمنوها
 @router.callback_query(F.data == "sub_health")
 async def sh_health(callback: CallbackQuery):
-    await callback.message.edit_text("🌿 *پرستاری سلامت*\n\nیکی از حوزه‌های زیر را انتخاب کنید:", reply_markup=health_menu(), parse_mode="Markdown")
+    await callback.message.answer("🌿 *پرستاری سلامت*\n\nیکی از حوزه‌های زیر را انتخاب کنید:", reply_markup=health_menu(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "sub_general")
 async def sh_general(callback: CallbackQuery):
-    await callback.message.edit_text("📖 *دروس عمومی/زبان*\n\nیکی از دروس زیر را انتخاب کنید:", reply_markup=general_menu(), parse_mode="Markdown")
+    await callback.message.answer("📖 *دروس عمومی/زبان*\n\nیکی از دروس زیر را انتخاب کنید:", reply_markup=general_menu(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "sub_basic_science")
 async def sh_basic(callback: CallbackQuery):
-    await callback.message.edit_text("🧬 *علوم پایه*\n\nیکی از دروس زیر را انتخاب کنید:", reply_markup=basic_menu(), parse_mode="Markdown")
+    await callback.message.answer("🧬 *علوم پایه*\n\nیکی از دروس زیر را انتخاب کنید:", reply_markup=basic_menu(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "sub_practice")
 async def sh_practice(callback: CallbackQuery):
-    await callback.message.edit_text("🏥 *پراتیک و کارآموزی*\n\nیکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=practice_menu(), parse_mode="Markdown")
+    await callback.message.answer("🏥 *پراتیک و کارآموزی*\n\nیکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=practice_menu(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "sub_vip")
 async def sh_vip(callback: CallbackQuery):
-    await callback.message.edit_text("👑 *VIP (اشتراک ویژه)*\n\nیکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=vip_menu(), parse_mode="Markdown")
+    await callback.message.answer("👑 *VIP (اشتراک ویژه)*\n\nیکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=vip_menu(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "quizzes")
 async def sh_quiz(callback: CallbackQuery):
-    await callback.message.edit_text("🎓 *آزمون‌های تمرینی*\n\nیکی از آزمون‌های زیر را انتخاب کنید:", reply_markup=quiz_menu(), parse_mode="Markdown")
+    await callback.message.answer("🎓 *آزمون‌های تمرینی*\n\nیکی از آزمون‌های زیر را انتخاب کنید:", reply_markup=quiz_menu(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("health_"))
@@ -201,7 +199,7 @@ async def health_sub(callback: CallbackQuery):
     if callback.data == "health_ind": t += " - فرد"
     elif callback.data == "health_env": t += " - محیط"
     elif callback.data == "health_soc": t += " - جامعه"
-    await callback.message.edit_text(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
+    await callback.message.answer(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("gen_"))
@@ -212,7 +210,7 @@ async def general_sub(callback: CallbackQuery):
     elif callback.data == "gen_rel": t += " - معارف"
     elif callback.data == "gen_lit": t += " - ادبیات"
     elif callback.data == "gen_pe": t += " - تربیت بدنی"
-    await callback.message.edit_text(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
+    await callback.message.answer(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("bas_"))
@@ -227,7 +225,7 @@ async def basic_sub(callback: CallbackQuery):
     elif callback.data == "bas_epi": t += " - اپیدمیولوژی"
     elif callback.data == "bas_imm": t += " - ایمنولوژی"
     elif callback.data == "bas_mic": t += " - میکروب‌شناسی"
-    await callback.message.edit_text(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
+    await callback.message.answer(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("pra_"))
@@ -235,7 +233,7 @@ async def practice_sub(callback: CallbackQuery):
     t = "پراتیک و کارآموزی"
     if callback.data == "pra_cli": t += " - پراتیک"
     elif callback.data == "pra_int": t += " - کارآموزی"
-    await callback.message.edit_text(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
+    await callback.message.answer(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("vip_"))
@@ -244,7 +242,7 @@ async def vip_sub(callback: CallbackQuery):
     if callback.data == "vip_teach": t += " - تدریس"
     elif callback.data == "vip_files": t += " - جزوات ویژه"
     elif callback.data == "vip_quiz": t += " - آزمون ویژه"
-    await callback.message.edit_text(f"👑 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
+    await callback.message.answer(f"👑 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("sub_"))
@@ -252,19 +250,19 @@ async def single_sub(callback: CallbackQuery):
     if callback.data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip", "quizzes"]:
         return
     t = callback.data.replace("sub_", "").replace("_", " ")
-    await callback.message.edit_text(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
+    await callback.message.answer(f"📖 *{t}*\n\nاطلاعات این بخش در حال به‌روزرسانی است.", reply_markup=back_btn(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "quiz_fundamentals")
 async def start_quiz(callback: CallbackQuery):
-    await callback.message.edit_text("🧪 این آزمون در حال ساخت است.", reply_markup=back_btn())
+    await callback.message.answer("🧪 این آزمون در حال ساخت است.", reply_markup=back_btn())
     await callback.answer()
 
 @router.callback_query(F.data == "pdf_fundamentals")
 async def send_pdf(callback: CallbackQuery):
     file_id = get_file_id("fundamentals")
     if not file_id:
-        await callback.message.edit_text("❌ فایل هنوز آپلود نشده است.", reply_markup=back_btn())
+        await callback.message.answer("❌ فایل هنوز آپلود نشده است.", reply_markup=back_btn())
         await callback.answer()
         return
     await callback.message.answer_document(document=file_id, caption="📄 جزوه اصول و فنون", reply_markup=back_btn())
@@ -272,7 +270,7 @@ async def send_pdf(callback: CallbackQuery):
 
 @router.callback_query(F.data == "contact_instructor")
 async def contact_support(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("📞 لطفاً پیام خود را بنویسید و بفرستید:", reply_markup=back_btn())
+    await callback.message.answer("📞 لطفاً پیام خود را بنویسید و بفرستید:", reply_markup=back_btn())
     await state.set_state(SupportState.msg)
     await callback.answer()
 
@@ -284,7 +282,7 @@ async def recv_support(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "about_us")
 async def about_us(callback: CallbackQuery):
-    await callback.message.edit_text("🏥 ما یک تیم حرفه‌ای از اساتید و پرستاران با تجربه هستیم.", reply_markup=back_btn(), parse_mode="Markdown")
+    await callback.message.answer("🏥 ما یک تیم حرفه‌ای از اساتید و پرستاران با تجربه هستیم.", reply_markup=back_btn(), parse_mode="Markdown")
     await callback.answer()
 
 @router.message(Command("admin"))
