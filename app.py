@@ -10,7 +10,20 @@ from aiogram.fsm.state import State, StatesGroup
 from config import BOT_TOKEN, ADMIN_ID, CHANNEL_ID
 
 # ==========================================
-# 1. دیتابیس پیشرفته
+# 1. کلاس‌های State (باید اول فایل باشن تا همه جا دیده بشن)
+# ==========================================
+class SupportState(StatesGroup):
+    msg = State()
+
+class AdminReplyState(StatesGroup):
+    waiting_for_reply = State()
+
+class AdminState(StatesGroup):
+    waiting_for_new_text = State()
+    waiting_for_file = State()
+
+# ==========================================
+# 2. دیتابیس
 # ==========================================
 def init_db():
     conn = sqlite3.connect('bot_database.db')
@@ -89,7 +102,7 @@ def delete_button(callback):
 init_db()
 
 # ==========================================
-# 2. تنظیم دکمه‌های اولیه
+# 3. تنظیم دکمه‌های اولیه
 # ==========================================
 def init_default_buttons():
     if not get_buttons("main"):
@@ -112,7 +125,6 @@ def init_default_buttons():
         add_menu_button("main", "👑 VIP", "sub_vip")
         add_menu_button("main", "🏥 درباره ما", "about_us")
 
-        # زیرمنوها
         add_menu_button("sub_health", "👤 فرد", "health_ind")
         add_menu_button("sub_health", "🏠 محیط", "health_env")
         add_menu_button("sub_health", "🌍 جامعه", "health_soc")
@@ -145,7 +157,7 @@ def init_default_buttons():
 init_default_buttons()
 
 # ==========================================
-# 3. ساخت کیبورد و توابع کمکی
+# 4. ساخت کیبورد
 # ==========================================
 def build_keyboard(parent, show_back=True):
     buttons = get_buttons(parent)
@@ -179,12 +191,9 @@ def back_btn():
     ])
 
 # ==========================================
-# 4. روت‌های کاربران
+# 5. روت‌های اصلی
 # ==========================================
 router = Router()
-
-class SupportState(StatesGroup):
-    msg = State()
 
 @router.message(Command("start"))
 async def start_cmd(message: Message):
@@ -305,15 +314,8 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 5. پنل ادمین حرفه‌ای
+# 6. پنل ادمین
 # ==========================================
-class AdminState(StatesGroup):
-    waiting_for_new_text = State()
-    waiting_for_file = State()
-
-class AdminReplyState(StatesGroup):
-    waiting_for_reply = State()
-
 SUB_MENUS = {
     "main": "منوی اصلی",
     "sub_health": "زیرمنوی پرستاری سلامت",
@@ -332,6 +334,12 @@ def build_admin_main_keyboard():
         [InlineKeyboardButton(text="🔒 مدیریت قفل محتوا", callback_data="admin_locks")],
         [InlineKeyboardButton(text="💬 پشتیبانی و پاسخ به کاربران", callback_data="admin_support")]
     ])
+
+def build_admin_submenu_keyboard():
+    keyboard = []
+    for key, title in SUB_MENUS.items():
+        keyboard.append([InlineKeyboardButton(text=f"📂 {title}", callback_data=f"adm_menu_{key}")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 @router.message(Command("admin"))
 async def admin_panel(message: Message):
@@ -354,12 +362,6 @@ async def admin_edit_menu_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
     await callback.message.answer("📂 *کدام منو را می‌خواهید ویرایش کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
     await callback.answer()
-
-def build_admin_submenu_keyboard():
-    keyboard = []
-    for key, title in SUB_MENUS.items():
-        keyboard.append([InlineKeyboardButton(text=f"📂 {title}", callback_data=f"adm_menu_{key}")])
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 @router.callback_query(F.data.startswith("adm_menu_"))
 async def admin_edit_select_menu(callback: CallbackQuery, state: FSMContext):
@@ -473,7 +475,7 @@ async def admin_support_panel(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 6. اجرا
+# 7. اجرا
 # ==========================================
 async def main():
     bot = Bot(token=BOT_TOKEN)
