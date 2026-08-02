@@ -10,7 +10,7 @@ from aiogram.fsm.state import State, StatesGroup
 from config import BOT_TOKEN, ADMIN_ID, CHANNEL_ID
 
 # ==========================================
-# 1. کلاس‌های State (باید اول فایل باشن تا همه جا دیده بشن)
+# 1. کلاس‌های State
 # ==========================================
 class SupportState(StatesGroup):
     msg = State()
@@ -23,13 +23,14 @@ class AdminState(StatesGroup):
     waiting_for_file = State()
 
 # ==========================================
-# 2. دیتابیس
+# 2. دیتابیس پیشرفته (با جدول امتیازات)
 # ==========================================
 def init_db():
     conn = sqlite3.connect('bot_database.db')
     c = conn.cursor()
     c.execute('CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, username TEXT, first_name TEXT, joined_at TEXT)')
     c.execute('CREATE TABLE IF NOT EXISTS menu_buttons (id INTEGER PRIMARY KEY, parent TEXT, text TEXT, callback TEXT, content TEXT, file_id TEXT, is_locked BOOLEAN DEFAULT 0)')
+    c.execute('CREATE TABLE IF NOT EXISTS ratings (user_id INTEGER, callback TEXT, rating INTEGER, PRIMARY KEY (user_id, callback))')
     conn.commit()
     conn.close()
 
@@ -48,6 +49,25 @@ def get_total_users():
     c.execute('SELECT COUNT(*) FROM users')
     return c.fetchone()[0]
 
+def get_average_rating(callback):
+    conn = sqlite3.connect('bot_database.db')
+    c = conn.cursor()
+    c.execute('SELECT AVG(rating) FROM ratings WHERE callback = ?', (callback,))
+    res = c.fetchone()[0]
+    conn.close()
+    return round(res, 1) if res else "بدون امتیاز"
+
+def save_rating(user_id, callback, rating):
+    conn = sqlite3.connect('bot_database.db')
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO ratings (user_id, callback, rating) VALUES (?, ?, ?)', (user_id, callback, rating))
+    conn.commit()
+    conn.close()
+
+def is_subscriber(user_id):
+    return False  # فعلاً غیرفعال، برای آینده
+
+# بقیه توابع دکمه‌ها
 def add_menu_button(parent, text, callback, content="اطلاعات در حال به‌روزرسانی.", file_id="", is_locked=False):
     conn = sqlite3.connect('bot_database.db')
     c = conn.cursor()
@@ -157,7 +177,7 @@ def init_default_buttons():
 init_default_buttons()
 
 # ==========================================
-# 4. ساخت کیبورد
+# 4. ساخت کیبورد و توابع کمکی
 # ==========================================
 def build_keyboard(parent, show_back=True):
     buttons = get_buttons(parent)
@@ -191,7 +211,7 @@ def back_btn():
     ])
 
 # ==========================================
-# 5. روت‌های اصلی
+# 5. روت‌های کاربران
 # ==========================================
 router = Router()
 
@@ -248,10 +268,40 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
             await callback.answer()
             return
     
+    # ===== بخش ارسال فایل و امتیازدهی =====
     if file_id:
-        await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
+        # ارسال فایل به کاربر
+        sent_msg = await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
+        
+        # نمایش دکمه‌های امتیازدهی
+        rating_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⭐ ۱", callback_data=f"rate_{data}_1"),
+             InlineKeyboardButton(text="⭐⭐ ۲", callback_data=f"rate_{data}_2"),
+             InlineKeyboardButton(text="⭐⭐⭐ ۳", callback_data=f"rate_{data}_3")],
+            [InlineKeyboardButton(text="⭐⭐⭐⭐ ۴", callback_data=f"rate_{data}_4"),
+             InlineKeyboardButton(text="⭐⭐⭐⭐⭐ ۵", callback_data=f"rate_{data}_5")]
+        ])
+        await callback.message.answer("📊 لطفاً به این محتوا امتیاز دهید:", reply_markup=rating_keyboard)
     else:
         await callback.message.answer(content, parse_mode="Markdown")
+    
+    await callback.answer()
+
+# ===== هندلر دریافت امتیاز =====
+@router.callback_query(F.data.startswith("rate_"))
+async def handle_rating(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) != 3: return
+    _, target_callback, rating = parts
+    user_id = callback.from_user.id
+    rating = int(rating)
+    
+    if 1 <= rating <= 5:
+        save_rating(user_id, target_callback, rating)
+        avg = get_average_rating(target_callback)
+        await callback.message.answer(f"✅ امتیاز شما ثبت شد! (میانگین فعلی: {avg} از ۵)", reply_markup=back_btn())
+    else:
+        await callback.message.answer("❌ امتیاز نامعتبر است.", reply_markup=back_btn())
     await callback.answer()
 
 @router.callback_query(F.data.startswith("check_"))
@@ -261,7 +311,15 @@ async def check_membership_after_join(callback: CallbackQuery):
     if is_member:
         content, file_id, _ = get_button_content(data)
         if file_id:
-            await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
+            sent_msg = await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
+            rating_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⭐ ۱", callback_data=f"rate_{data}_1"),
+                 InlineKeyboardButton(text="⭐⭐ ۲", callback_data=f"rate_{data}_2"),
+                 InlineKeyboardButton(text="⭐⭐⭐ ۳", callback_data=f"rate_{data}_3")],
+                [InlineKeyboardButton(text="⭐⭐⭐⭐ ۴", callback_data=f"rate_{data}_4"),
+                 InlineKeyboardButton(text="⭐⭐⭐⭐⭐ ۵", callback_data=f"rate_{data}_5")]
+            ])
+            await callback.message.answer("📊 لطفاً به این محتوا امتیاز دهید:", reply_markup=rating_keyboard)
         else:
             await callback.message.answer(content, parse_mode="Markdown")
     else:
@@ -314,7 +372,7 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 6. پنل ادمین
+# 6. پنل ادمین (باقی‌مانده به همان شکل)
 # ==========================================
 SUB_MENUS = {
     "main": "منوی اصلی",
