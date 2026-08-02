@@ -2,7 +2,7 @@ import asyncio
 import sqlite3
 from datetime import datetime
 from aiogram import Bot, Dispatcher, Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -80,35 +80,39 @@ init_db()
 # ==========================================
 def init_default_buttons():
     if not get_buttons("main"):
-        add_menu_button("main", "🫀 داخلی - جراحی", "sub_internal", "📖 *داخلی - جراحی*\n\nاطلاعات این بخش در حال به‌روزرسانی است.")
+        # دکمه‌های اصلی
+        add_menu_button("main", "🫀 داخلی - جراحی", "sub_internal")
         add_menu_button("main", "🍼 کودکان", "sub_pediatric")
         add_menu_button("main", "👴 سالمندان", "sub_geriatric")
         add_menu_button("main", "🤱 مادر و نوزاد", "sub_obstetric")
         add_menu_button("main", "🧠 روان پرستاری", "sub_psychiatry")
-        add_menu_button("main", "🌿 پرستاری سلامت", "sub_health", "🌿 *پرستاری سلامت*\n\nیکی از حوزه‌های زیر را انتخاب کنید:")
+        add_menu_button("main", "🌿 پرستاری سلامت", "sub_health")
         add_menu_button("main", "🩺 پرستاری بهداشت", "sub_hygiene")
         add_menu_button("main", "💉 مراقبت‌های ویژه", "sub_icu")
         add_menu_button("main", "🚑 فوریت‌های پزشکی", "sub_emergency")
         add_menu_button("main", "📋 فرایندهای پرستاری", "sub_process")
         add_menu_button("main", "📚 رفرنس‌های پرستاری", "sub_references")
-        add_menu_button("main", "🧬 علوم پایه", "sub_basic_science", "🧬 *علوم پایه*\n\nیکی از دروس زیر را انتخاب کنید:")
-        add_menu_button("main", "📖 دروس عمومی/زبان", "sub_general", "📖 *دروس عمومی/زبان*\n\nیکی از دروس زیر را انتخاب کنید:")
-        add_menu_button("main", "🏥 پراتیک و کارآموزی", "sub_practice", "🏥 *پراتیک و کارآموزی*\n\nیکی از گزینه‌های زیر را انتخاب کنید:")
-        add_menu_button("main", "🎓 آزمون‌ها", "quizzes", "🎓 *آزمون‌های تمرینی*\n\nیکی از آزمون‌های زیر را انتخاب کنید:")
-        add_menu_button("main", "📞 پشتیبانی", "contact_instructor", "📞 *پشتیبانی*\n\nلطفاً پیام خود را بنویسید و بفرستید.")
-        add_menu_button("main", "👑 VIP", "sub_vip", "👑 *VIP (اشتراک ویژه)*\n\nیکی از گزینه‌های زیر را انتخاب کنید:")
-        add_menu_button("main", "🏥 درباره ما", "about_us", "🏥 *درباره ما*\n\nما یک تیم حرفه‌ای هستیم.")
+        add_menu_button("main", "🧬 علوم پایه", "sub_basic_science")
+        add_menu_button("main", "📖 دروس عمومی/زبان", "sub_general")
+        add_menu_button("main", "🏥 پراتیک و کارآموزی", "sub_practice")
+        add_menu_button("main", "🎓 آزمون‌ها", "quizzes")
+        add_menu_button("main", "📞 پشتیبانی", "contact_instructor")
+        add_menu_button("main", "👑 VIP", "sub_vip")
+        add_menu_button("main", "🏥 درباره ما", "about_us")
 
+        # زیرمنوی پرستاری سلامت
         add_menu_button("sub_health", "👤 فرد", "health_ind")
         add_menu_button("sub_health", "🏠 محیط", "health_env")
         add_menu_button("sub_health", "🌍 جامعه", "health_soc")
 
+        # زیرمنوی عمومی/زبان
         add_menu_button("sub_general", "🧠 روان عمومی", "gen_psych")
         add_menu_button("sub_general", "🗣️ زبان تخصصی", "gen_lang")
         add_menu_button("sub_general", "📖 معارف", "gen_rel")
         add_menu_button("sub_general", "✍️ ادبیات", "gen_lit")
         add_menu_button("sub_general", "🏃 تربیت بدنی", "gen_pe")
 
+        # زیرمنوی علوم پایه
         add_menu_button("sub_basic_science", "🥗 تغذیه", "bas_nut")
         add_menu_button("sub_basic_science", "💊 فارماکولوژی", "bas_phar")
         add_menu_button("sub_basic_science", "🔬 انگل‌شناسی", "bas_par")
@@ -119,14 +123,17 @@ def init_default_buttons():
         add_menu_button("sub_basic_science", "🛡️ ایمنولوژی", "bas_imm")
         add_menu_button("sub_basic_science", "🦠 میکروب‌شناسی", "bas_mic")
 
+        # زیرمنوی پراتیک و کارآموزی
         add_menu_button("sub_practice", "🩺 پراتیک", "pra_cli")
         add_menu_button("sub_practice", "🏥 کارآموزی", "pra_int")
 
+        # زیرمنوی VIP
         add_menu_button("sub_vip", "👨‍🏫 تدریس", "vip_teach")
         add_menu_button("sub_vip", "📂 جزوات ویژه", "vip_files")
         add_menu_button("sub_vip", "📝 آزمون ویژه", "vip_quiz")
 
-        add_menu_button("quizzes", "📝 آزمون اصول و فنون", "quiz_fundamentals", "🧪 این آزمون در حال ساخت است.")
+        # زیرمنوی آزمون‌ها
+        add_menu_button("quizzes", "📝 آزمون اصول و فنون", "quiz_fundamentals")
 
 init_default_buttons()
 
@@ -150,6 +157,11 @@ def build_keyboard(parent, show_back=True):
         keyboard.append([InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+def back_btn():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")]
+    ])
+
 # ==========================================
 # 4. روت‌های کاربران
 # ==========================================
@@ -161,9 +173,21 @@ class SupportState(StatesGroup):
 @router.message(Command("start"))
 async def start_cmd(message: Message):
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
+    
+    caption_text = (
+        f"🌸 *سلام {message.from_user.first_name} عزیز!*\n\n"
+        "👩‍⚕️ به *آکادمی پرستاری* خوش آمدید!\n"
+        "ارائه بهترین محتویات آموزشی ویژه دانشجویان پرستاری\n"
+        "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n"
+        "🏛️ *دانشگاه علوم پزشکی ایران*\n"
+        "پیشگام در آموزش نوین\n"
+        "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n"
+        "👇 *برای شروع، یکی از بخش‌های زیر را انتخاب کنید:*"
+    )
+    
     await message.answer_photo(
         photo="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?q=80&w=1000&auto=format&fit=crop",
-        caption=f"🌸 *سلام {message.from_user.first_name} عزیز!*\n\n👩‍⚕️ به آکادمی پرستاری خوش آمدید!",
+        caption=caption_text,
         reply_markup=build_keyboard("main"),
         parse_mode="Markdown"
     )
@@ -193,11 +217,6 @@ async def contact_support(callback: CallbackQuery, state: FSMContext):
     await state.set_state(SupportState.msg)
     await callback.answer()
 
-def back_btn():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")]
-    ])
-
 @router.message(SupportState.msg)
 async def recv_support(message: Message, state: FSMContext):
     await message.bot.send_message(ADMIN_ID, f"📩 پیام جدید از {message.from_user.id}:\n{message.text}")
@@ -211,11 +230,27 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 5. پنل ادمین دکمه‌ای و بسیار آسان
+# 5. پنل ادمین حرفه‌ای و هوشمند
 # ==========================================
 class AdminState(StatesGroup):
     waiting_for_new_text = State()
     waiting_for_file = State()
+
+SUB_MENUS = {
+    "main": "منوی اصلی",
+    "sub_health": "زیرمنوی پرستاری سلامت",
+    "sub_general": "زیرمنوی دروس عمومی/زبان",
+    "sub_basic_science": "زیرمنوی علوم پایه",
+    "sub_practice": "زیرمنوی پراتیک و کارآموزی",
+    "sub_vip": "زیرمنوی VIP",
+    "quizzes": "زیرمنوی آزمون‌ها"
+}
+
+def build_admin_submenu_keyboard():
+    keyboard = []
+    for key, title in SUB_MENUS.items():
+        keyboard.append([InlineKeyboardButton(text=f"📂 {title}", callback_data=f"adm_menu_{key}")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 @router.message(Command("admin"))
 async def admin_panel(message: Message):
@@ -233,22 +268,40 @@ async def admin_panel(message: Message):
 @router.callback_query(F.data == "admin_list_buttons")
 async def admin_list_buttons(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
-    buttons = get_buttons("main")
-    text = "📋 *لیست دکمه‌های اصلی و کدهایشان:*\n\n"
-    for btn in buttons:
-        text += f"🔹 {btn[0]} → `{btn[1]}`\n"
+    
+    text = "📋 *لیست تمام دکمه‌ها و کدهایشان:*\n\n"
+    for key, title in SUB_MENUS.items():
+        text += f"\n🔹 *{title}:*\n"
+        buttons = get_buttons(key)
+        if not buttons:
+            text += "   (خالی)\n"
+        for btn in buttons:
+            text += f"   ➜ {btn[0]} → `{btn[1]}`\n"
+    
     await callback.message.answer(text, parse_mode="Markdown")
     await callback.answer()
 
-# 5-2. ویرایش متن (دکمه‌ای)
+# 5-2. ویرایش متن
 @router.callback_query(F.data == "admin_edit_text")
-async def admin_edit_start(callback: CallbackQuery, state: FSMContext):
+async def admin_edit_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
-    buttons = get_buttons("main")
+    await callback.message.answer("📂 *کدام منو را می‌خواهید ویرایش کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("adm_menu_"))
+async def admin_edit_select_menu(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID: return
+    parent = callback.data.replace("adm_menu_", "")
+    buttons = get_buttons(parent)
+    if not buttons:
+        await callback.message.answer("❌ این منو خالی است!")
+        await callback.answer()
+        return
+    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn[0], callback_data=f"edit_{btn[1]}")] for btn in buttons
     ])
-    await callback.message.answer("📝 *کدام دکمه را می‌خواهید ویرایش کنید؟*\n\n(متن اصلی دکمه تغییر نمی‌کند، فقط محتوای داخل آن عوض می‌شود)", reply_markup=keyboard, parse_mode="Markdown")
+    await callback.message.answer(f"📝 *دکمه‌های منوی `{SUB_MENUS.get(parent, parent)}`:*\n\nکدام دکمه را می‌خواهید ویرایش کنید؟", reply_markup=keyboard, parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("edit_"))
@@ -268,15 +321,27 @@ async def admin_save_text(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ متن با موفقیت تغییر کرد!")
 
-# 5-3. آپلود فایل (دکمه‌ای)
+# 5-3. آپلود فایل
 @router.callback_query(F.data == "admin_upload_file")
-async def admin_upload_start(callback: CallbackQuery, state: FSMContext):
+async def admin_upload_start(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID: return
-    buttons = get_buttons("main")
+    await callback.message.answer("📂 *برای کدام منو می‌خواهید فایل آپلود کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("adm_menu_"))
+async def admin_upload_select_menu(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID: return
+    parent = callback.data.replace("adm_menu_", "")
+    buttons = get_buttons(parent)
+    if not buttons:
+        await callback.message.answer("❌ این منو خالی است!")
+        await callback.answer()
+        return
+    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn[0], callback_data=f"upload_{btn[1]}")] for btn in buttons
     ])
-    await callback.message.answer("📎 *برای کدام دکمه می‌خواهید فایل آپلود کنید؟*", reply_markup=keyboard, parse_mode="Markdown")
+    await callback.message.answer(f"📎 *دکمه‌های منوی `{SUB_MENUS.get(parent, parent)}`:*\n\nبرای کدام دکمه فایل می‌خواهید؟", reply_markup=keyboard, parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("upload_"))
