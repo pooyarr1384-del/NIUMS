@@ -126,10 +126,11 @@ def delete_button(callback):
 init_db()
 
 # ==========================================
-# 3. تنظیم دکمه‌های اولیه
+# 3. تنظیم دکمه‌های اولیه (بدون جعبه ابزار، با ماشین حساب)
 # ==========================================
 def init_default_buttons():
     if not get_buttons("main"):
+        # دکمه‌های اصلی
         add_menu_button("main", "🫀 داخلی - جراحی", "sub_internal")
         add_menu_button("main", "🍼 کودکان", "sub_pediatric")
         add_menu_button("main", "👴 سالمندان", "sub_geriatric")
@@ -148,8 +149,9 @@ def init_default_buttons():
         add_menu_button("main", "📞 پشتیبانی", "contact_instructor")
         add_menu_button("main", "👑 VIP", "sub_vip")
         add_menu_button("main", "🏥 درباره ما", "about_us")
-        add_menu_button("main", "🧰 جعبه ابزار پرستاری", "toolbox")
+        add_menu_button("main", "🧮 ماشین حساب پرستاری", "calculator_menu") # جایگزین جعبه ابزار شد
 
+        # زیرمنوها
         add_menu_button("sub_health", "👤 فرد", "health_ind")
         add_menu_button("sub_health", "🏠 محیط", "health_env")
         add_menu_button("sub_health", "🌍 جامعه", "health_soc")
@@ -251,7 +253,7 @@ async def go_back(callback: CallbackQuery):
 async def handle_dynamic_buttons(callback: CallbackQuery):
     data = callback.data
     
-    if data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip", "quizzes", "toolbox"]:
+    if data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip", "quizzes"]:
         await callback.message.answer("📂 منوی مربوطه:", reply_markup=build_keyboard(data), parse_mode="Markdown")
         await callback.answer()
         return
@@ -311,6 +313,77 @@ async def check_membership_after_join(callback: CallbackQuery):
         await callback.message.answer("❌ شما هنوز عضو کانال نشده‌اید! لطفاً ابتدا عضو شوید.")
     await callback.answer()
 
+# ==========================================
+# 6. هندلر اختصاصی ماشین حساب
+# ==========================================
+@main_router.callback_query(F.data == "calculator_menu")
+async def open_calculator(callback: CallbackQuery):
+    calc_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🧮 محاسبه BMI", callback_data="calc_bmi"),
+         InlineKeyboardButton(text="💊 دوز دارو", callback_data="calc_drug")],
+        [InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")]
+    ])
+    await callback.message.answer(
+        "🧮 *ماشین حساب پرستاری*\n\nیکی از ابزارهای زیر را انتخاب کنید:",
+        reply_markup=calc_keyboard,
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+@main_router.callback_query(F.data == "calc_bmi")
+async def calc_bmi(callback: CallbackQuery):
+    await callback.message.answer(
+        "📝 *محاسبه BMI*\n\nلطفاً وزن (کیلوگرم) و قد (متر) را به ترتیب با فاصله بفرستید.\nمثال: ۷۵ ۱.۷۵",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+@main_router.callback_query(F.data == "calc_drug")
+async def calc_drug(callback: CallbackQuery):
+    await callback.message.answer(
+        "💊 *محاسبه دوز دارو*\n\nلطفاً این ۳ عدد را با فاصله بفرستید:\n۱. دوز تجویزی (mg/kg)\n۲. وزن بیمار (kg)\n۳. غلظت دارو (mg/ml)\n\nمثال: ۵ ۷۰ ۱۰",
+        reply_markup=back_btn(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+@main_router.message(F.text.regexp(r'^\d+(\.\d+)?(\s+\d+(\.\d+)?)*$'))
+async def handle_calc_input(message: Message):
+    numbers = list(map(float, message.text.split()))
+    
+    if len(numbers) == 2:
+        # محاسبه BMI
+        weight, height = numbers[0], numbers[1]
+        if height > 3:  # اگر قد به سانتی‌متر وارد شده باشد
+            height = height / 100
+        bmi = weight / (height ** 2)
+        category = "لاغر" if bmi < 18.5 else "نرمال" if bmi < 25 else "اضافه وزن" if bmi < 30 else "چاق"
+        await message.answer(
+            f"🧮 *نتیجه BMI*\n\n"
+            f"وزن: {weight} کیلوگرم\n"
+            f"قد: {height} متر\n"
+            f"شاخص BMI: *{bmi:.2f}*\n"
+            f"وضعیت: {category}",
+            parse_mode="Markdown"
+        )
+
+    elif len(numbers) == 3:
+        # محاسبه دوز دارو
+        dose_per_kg, weight, concentration = numbers[0], numbers[1], numbers[2]
+        total_dose = dose_per_kg * weight
+        volume_ml = total_dose / concentration
+        await message.answer(
+            f"💊 *نتیجه دوز دارو*\n\n"
+            f"دوز تجویزی: {dose_per_kg} mg/kg\n"
+            f"وزن بیمار: {weight} kg\n"
+            f"غلظت ویال: {concentration} mg/ml\n"
+            f"┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n"
+            f"✅ دوز کل مورد نیاز: *{total_dose} mg*\n"
+            f"✅ حجم مورد نیاز از ویال: *{volume_ml:.2f} ml*",
+            parse_mode="Markdown"
+        )
+
 @main_router.callback_query(F.data == "contact_instructor")
 async def contact_support(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("📞 لطفاً پیام خود را بنویسید و بفرستید:", reply_markup=back_btn())
@@ -357,7 +430,7 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 6. پنل ادمین
+# 7. پنل ادمین
 # ==========================================
 SUB_MENUS = {
     "main": "منوی اصلی",
@@ -366,8 +439,7 @@ SUB_MENUS = {
     "sub_basic_science": "زیرمنوی علوم پایه",
     "sub_practice": "زیرمنوی پراتیک و کارآموزی",
     "sub_vip": "زیرمنوی VIP",
-    "quizzes": "زیرمنوی آزمون‌ها",
-    "toolbox": "جعبه ابزار پرستاری"
+    "quizzes": "زیرمنوی آزمون‌ها"
 }
 
 def build_admin_main_keyboard():
@@ -551,7 +623,7 @@ async def admin_support_panel(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 7. اجرا
+# 8. اجرا
 # ==========================================
 async def main():
     bot = Bot(token=BOT_TOKEN)
