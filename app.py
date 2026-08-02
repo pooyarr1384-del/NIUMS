@@ -126,7 +126,7 @@ def delete_button(callback):
 init_db()
 
 # ==========================================
-# 3. تنظیم دکمه‌های اولیه (بدون جعبه ابزار، با ماشین حساب)
+# 3. تنظیم دکمه‌های اولیه
 # ==========================================
 def init_default_buttons():
     if not get_buttons("main"):
@@ -145,11 +145,10 @@ def init_default_buttons():
         add_menu_button("main", "🧬 علوم پایه", "sub_basic_science")
         add_menu_button("main", "📖 دروس عمومی/زبان", "sub_general")
         add_menu_button("main", "🏥 پراتیک و کارآموزی", "sub_practice")
-        add_menu_button("main", "🎓 آزمون‌ها", "quizzes")
         add_menu_button("main", "📞 پشتیبانی", "contact_instructor")
         add_menu_button("main", "👑 VIP", "sub_vip")
         add_menu_button("main", "🏥 درباره ما", "about_us")
-        add_menu_button("main", "🧮 ماشین حساب پرستاری", "calculator_menu") # جایگزین جعبه ابزار شد
+        add_menu_button("main", "🧮 ماشین حساب پرستاری", "calculator_menu")
 
         # زیرمنوها
         add_menu_button("sub_health", "👤 فرد", "health_ind")
@@ -178,8 +177,6 @@ def init_default_buttons():
         add_menu_button("sub_vip", "👨‍🏫 تدریس", "vip_teach")
         add_menu_button("sub_vip", "📂 جزوات ویژه", "vip_files")
         add_menu_button("sub_vip", "📝 آزمون ویژه", "vip_quiz")
-
-        add_menu_button("quizzes", "📝 آزمون اصول و فنون", "quiz_fundamentals")
 
 init_default_buttons()
 
@@ -249,11 +246,11 @@ async def go_back(callback: CallbackQuery):
     await callback.message.answer("✨ منوی اصلی:", reply_markup=build_keyboard("main"), parse_mode="Markdown")
     await callback.answer()
 
-@main_router.callback_query(F.data.startswith(("sub_", "health_", "gen_", "bas_", "pra_", "vip_", "quiz_")))
+@main_router.callback_query(F.data.startswith(("sub_", "health_", "gen_", "bas_", "pra_", "vip_")))
 async def handle_dynamic_buttons(callback: CallbackQuery):
     data = callback.data
     
-    if data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip", "quizzes"]:
+    if data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip"]:
         await callback.message.answer("📂 منوی مربوطه:", reply_markup=build_keyboard(data), parse_mode="Markdown")
         await callback.answer()
         return
@@ -438,8 +435,7 @@ SUB_MENUS = {
     "sub_general": "زیرمنوی دروس عمومی/زبان",
     "sub_basic_science": "زیرمنوی علوم پایه",
     "sub_practice": "زیرمنوی پراتیک و کارآموزی",
-    "sub_vip": "زیرمنوی VIP",
-    "quizzes": "زیرمنوی آزمون‌ها"
+    "sub_vip": "زیرمنوی VIP"
 }
 
 def build_admin_main_keyboard():
