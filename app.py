@@ -214,21 +214,30 @@ def build_keyboard(parent, show_back=True):
     buttons = get_buttons(parent)
     keyboard = []
     row = []
+    
+    # چیدمان دکمه‌ها در ردیف‌های ۲ تایی
     for i, btn in enumerate(buttons):
         text = btn[0]
         callback = btn[1]
         is_locked = btn[4]
         display_text = f"🔒 {text}" if is_locked else text
+        
         row.append(InlineKeyboardButton(text=display_text, callback_data=callback))
+        
+        # اگر دو دکمه در ردیف جمع شد، به کیبورد اضافه کن و ردیف را خالی کن
         if len(row) == 2:
             keyboard.append(row)
             row = []
+    
+    # اگر یک دکمه باقی مانده بود، آن را هم اضافه کن
     if row:
         keyboard.append(row)
+    
+    # دکمه بازگشت
     if show_back:
         keyboard.append([InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")])
+    
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
 async def check_membership(bot, user_id):
     try:
         member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
