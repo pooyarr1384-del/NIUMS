@@ -172,15 +172,16 @@ def init_default_buttons():
         add_menu_button("main", "📞 پشتیبانی", "contact_instructor")
         add_menu_button("main", "👑 VIP", "sub_vip")
         add_menu_button("main", "🏥 درباره ما", "about_us")
-        
-        # دکمه‌های ابزارها (جداگانه)
-        add_menu_button("main", "🧮 ماشین حساب BMI", "tool_bmi")
-        add_menu_button("main", "💊 دوز دارو", "tool_drug")
-        add_menu_button("main", "💧 مایعات وریدی", "tool_fluids")
-        add_menu_button("main", "🩸 قطره‌چکان (IV Drip)", "tool_drip")
-        add_menu_button("main", "📏 تبدیل واحدها", "tool_convert")
-        add_menu_button("main", "💊 جدول داروها", "tool_drugs")
-        add_menu_button("main", "📋 راهنمای مهارت‌ها", "tool_skills")
+        add_menu_button("main", "🧰 ابزارهای پرستاری", "tools_menu")
+
+        # زیرمنوی ابزارها
+        add_menu_button("tools_menu", "🧮 ماشین حساب BMI", "tool_bmi")
+        add_menu_button("tools_menu", "💊 دوز دارو", "tool_drug")
+        add_menu_button("tools_menu", "💧 مایعات وریدی", "tool_fluids")
+        add_menu_button("tools_menu", "🩸 قطره‌چکان (IV Drip)", "tool_drip")
+        add_menu_button("tools_menu", "📏 تبدیل واحدها", "tool_convert")
+        add_menu_button("tools_menu", "💊 جدول داروها", "tool_drugs")
+        add_menu_button("tools_menu", "📋 راهنمای مهارت‌ها", "tool_skills")
 
         add_menu_button("sub_health", "👤 فرد", "health_ind")
         add_menu_button("sub_health", "🏠 محیط", "health_env")
@@ -281,7 +282,7 @@ async def go_back(callback: CallbackQuery):
 async def handle_dynamic_buttons(callback: CallbackQuery):
     data = callback.data
     
-    if data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip"]:
+    if data in ["sub_health", "sub_general", "sub_basic_science", "sub_practice", "sub_vip", "tools_menu"]:
         await callback.message.answer("📂 منوی مربوطه:", reply_markup=build_keyboard(data), parse_mode="Markdown")
         await callback.answer()
         return
@@ -310,10 +311,8 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 6. هندلرهای اختصاصی ابزارها (جداگانه و با مدیریت خطا)
+# 6. هندلرهای اختصاصی ابزارها
 # ==========================================
-
-# ---------- 1. BMI ----------
 @main_router.callback_query(F.data == "tool_bmi")
 async def tool_bmi(callback: CallbackQuery):
     await callback.message.answer(
@@ -326,31 +325,6 @@ async def tool_bmi(callback: CallbackQuery):
     )
     await callback.answer()
 
-@main_router.message(F.text.regexp(r'^\d+(\.\d+)?\s+\d+(\.\d+)?$'))
-async def calculate_bmi(message: Message):
-    try:
-        parts = list(map(float, message.text.strip().split()))
-        if len(parts) != 2: return
-        
-        weight, height = parts[0], parts[1]
-        if height > 3:
-            height = height / 100
-        
-        bmi = weight / (height ** 2)
-        category = "لاغر" if bmi < 18.5 else "نرمال" if bmi < 25 else "اضافه وزن" if bmi < 30 else "چاق"
-        
-        await message.answer(
-            f"📊 *نتیجه BMI*\n\n"
-            f"وزن: {weight} کیلوگرم\n"
-            f"قد: {height} متر\n"
-            f"شاخص BMI: **{bmi:.2f}**\n"
-            f"وضعیت: {category}",
-            parse_mode="Markdown"
-        )
-    except:
-        await message.answer("❌ لطفاً اعداد را به درستی وارد کنید (مثال: `75 1.75`).")
-
-# ---------- 2. دوز دارو ----------
 @main_router.callback_query(F.data == "tool_drug")
 async def tool_drug(callback: CallbackQuery):
     await callback.message.answer(
@@ -365,7 +339,6 @@ async def tool_drug(callback: CallbackQuery):
     )
     await callback.answer()
 
-# ---------- 3. مایعات وریدی ----------
 @main_router.callback_query(F.data == "tool_fluids")
 async def tool_fluids(callback: CallbackQuery):
     await callback.message.answer(
@@ -377,7 +350,6 @@ async def tool_fluids(callback: CallbackQuery):
     )
     await callback.answer()
 
-# ---------- 4. قطره‌چکان ----------
 @main_router.callback_query(F.data == "tool_drip")
 async def tool_drip(callback: CallbackQuery):
     await callback.message.answer(
@@ -392,7 +364,6 @@ async def tool_drip(callback: CallbackQuery):
     )
     await callback.answer()
 
-# ---------- 5. تبدیل واحدها ----------
 @main_router.callback_query(F.data == "tool_convert")
 async def tool_convert(callback: CallbackQuery):
     await callback.message.answer(
@@ -407,7 +378,6 @@ async def tool_convert(callback: CallbackQuery):
     )
     await callback.answer()
 
-# ---------- 6. جدول داروها ----------
 @main_router.callback_query(F.data == "tool_drugs")
 async def tool_drugs(callback: CallbackQuery):
     await callback.message.answer(
@@ -419,7 +389,6 @@ async def tool_drugs(callback: CallbackQuery):
     )
     await callback.answer()
 
-# ---------- 7. راهنمای مهارت‌ها ----------
 @main_router.callback_query(F.data == "tool_skills")
 async def tool_skills(callback: CallbackQuery):
     await callback.message.answer(
@@ -434,16 +403,13 @@ async def tool_skills(callback: CallbackQuery):
 # ==========================================
 # 7. پردازشگرهای ورودی ابزارها
 # ==========================================
-
 @main_router.message(F.text.regexp(r'^\d+(\.\d+)?(\s+\d+(\.\d+)?)*$'))
 async def handle_calc_input(message: Message):
     numbers = list(map(float, message.text.strip().split()))
     text = message.text.strip().lower()
     
     try:
-        # تشخیص نوع محاسبه بر اساس تعداد اعداد
         if len(numbers) == 1:
-            # مایعات وریدی
             weight = numbers[0]
             if weight <= 10: fluid = weight * 100
             elif weight <= 20: fluid = 1000 + (weight - 10) * 50
@@ -455,40 +421,29 @@ async def handle_calc_input(message: Message):
                 parse_mode="Markdown"
             )
         
-        elif len(numbers) == 2:
-            # فقط BMI می‌تواند ۲ عددی باشد
-            pass  # توسط هندلر دیگر پردازش می‌شود
-        
         elif len(numbers) == 3:
-            # دوز دارو یا قطره‌چکان
-            if text.startswith("mg mcg") or text.startswith("c f") or text.startswith("ml drop"):
-                pass  # توسط هندلر تبدیل پردازش می‌شود
+            vol, factor, hours = numbers[0], numbers[1], numbers[2]
+            if factor in [10, 15, 20] and hours > 0:
+                drops_per_min = (vol * factor) / (hours * 60)
+                await message.answer(
+                    f"🩸 *نتیجه قطره‌چکان*\n\n"
+                    f"حجم: {vol} ml | فاکتور: {factor} | زمان: {hours}h\n"
+                    f"قطره در دقیقه: **{drops_per_min:.0f} gtt/min**",
+                    parse_mode="Markdown"
+                )
             else:
-                # فرض می‌کنیم دوز دارو یا قطره‌چکان است
-                vol, factor, hours = numbers[0], numbers[1], numbers[2]
-                if factor in [10, 15, 20] and hours > 0:
-                    # قطره‌چکان
-                    drops_per_min = (vol * factor) / (hours * 60)
-                    await message.answer(
-                        f"🩸 *نتیجه قطره‌چکان*\n\n"
-                        f"حجم: {vol} ml | فاکتور: {factor} | زمان: {hours}h\n"
-                        f"قطره در دقیقه: **{drops_per_min:.0f} gtt/min**",
-                        parse_mode="Markdown"
-                    )
-                else:
-                    # دوز دارو
-                    dose, weight, conc = numbers[0], numbers[1], numbers[2]
-                    total_dose = dose * weight
-                    vol_ml = total_dose / conc
-                    await message.answer(
-                        f"💊 *نتیجه دوز دارو*\n\n"
-                        f"دوز تجویزی: {dose} mg/kg\n"
-                        f"وزن بیمار: {weight} kg\n"
-                        f"غلظت ویال: {conc} mg/ml\n"
-                        f"دوز کل: **{total_dose} mg**\n"
-                        f"حجم از ویال: **{vol_ml:.2f} ml**",
-                        parse_mode="Markdown"
-                    )
+                dose, weight, conc = numbers[0], numbers[1], numbers[2]
+                total_dose = dose * weight
+                vol_ml = total_dose / conc
+                await message.answer(
+                    f"💊 *نتیجه دوز دارو*\n\n"
+                    f"دوز تجویزی: {dose} mg/kg\n"
+                    f"وزن بیمار: {weight} kg\n"
+                    f"غلظت ویال: {conc} mg/ml\n"
+                    f"دوز کل: **{total_dose} mg**\n"
+                    f"حجم از ویال: **{vol_ml:.2f} ml**",
+                    parse_mode="Markdown"
+                )
     except:
         await message.answer("❌ محاسبه با خطا مواجه شد. لطفاً اعداد را بررسی کنید.")
 
@@ -496,7 +451,6 @@ async def handle_calc_input(message: Message):
 async def handle_text_inputs(message: Message):
     text = message.text.strip().lower()
     
-    # تبدیل واحدها
     parts = text.split()
     if len(parts) == 3 and parts[0] in ["mg", "c", "ml"]:
         unit1, unit2, val = parts[0], parts[1], float(parts[2])
@@ -508,7 +462,6 @@ async def handle_text_inputs(message: Message):
             await message.answer(f"📏 **{val} ml** = **{val * 20} drops**")
         return
     
-    # جدول داروها
     try:
         with open("drugs.txt", "r", encoding="utf-8") as f:
             for line in f:
@@ -522,7 +475,6 @@ async def handle_text_inputs(message: Message):
                         return
     except: pass
     
-    # راهنمای مهارت‌ها
     try:
         with open("skills.txt", "r", encoding="utf-8") as f:
             for line in f:
@@ -536,7 +488,6 @@ async def handle_text_inputs(message: Message):
                         return
     except: pass
     
-    # اگر هیچکدام نبود
     await message.answer("❌ موردی با این نام پیدا نشد. لطفاً از لیست ابزارها یا داروها استفاده کنید.")
 
 # ==========================================
@@ -548,7 +499,8 @@ SUB_MENUS = {
     "sub_general": "زیرمنوی دروس عمومی/زبان",
     "sub_basic_science": "زیرمنوی علوم پایه",
     "sub_practice": "زیرمنوی پراتیک و کارآموزی",
-    "sub_vip": "زیرمنوی VIP"
+    "sub_vip": "زیرمنوی VIP",
+    "tools_menu": "زیرمنوی ابزارهای پرستاری"
 }
 
 def build_admin_main_keyboard():
@@ -792,7 +744,7 @@ async def main():
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
     dp.include_router(main_router)
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, skip_updates=True)
 
 if __name__ == "__main__":
     asyncio.run(main())
