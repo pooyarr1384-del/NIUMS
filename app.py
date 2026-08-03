@@ -23,7 +23,7 @@ class AdminState(StatesGroup):
     waiting_for_file = State()
 
 # ==========================================
-# 2. دیتابیس
+# 2. دیتابیس پیشرفته (با جدول ادمین‌ها)
 # ==========================================
 def init_db():
     conn = sqlite3.connect('bot_database.db')
@@ -31,6 +31,10 @@ def init_db():
     c.execute('CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, username TEXT, first_name TEXT, joined_at TEXT)')
     c.execute('CREATE TABLE IF NOT EXISTS menu_buttons (id INTEGER PRIMARY KEY, parent TEXT, text TEXT, callback TEXT, content TEXT, file_id TEXT, is_locked BOOLEAN DEFAULT 0)')
     c.execute('CREATE TABLE IF NOT EXISTS ratings (user_id INTEGER, callback TEXT, rating INTEGER, PRIMARY KEY (user_id, callback))')
+    c.execute('CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY)')
+    
+    # اضافه کردن ادمین اصلی به دیتابیس
+    c.execute('INSERT OR IGNORE INTO admins (user_id) VALUES (?)', (ADMIN_ID,))
     conn.commit()
     conn.close()
 
@@ -56,6 +60,29 @@ def get_all_users():
     rows = c.fetchall()
     conn.close()
     return [row[0] for row in rows]
+
+def is_admin(user_id):
+    conn = sqlite3.connect('bot_database.db')
+    c = conn.cursor()
+    c.execute('SELECT user_id FROM admins WHERE user_id = ?', (user_id,))
+    row = c.fetchone()
+    conn.close()
+    return row is not None
+
+def add_admin(user_id):
+    conn = sqlite3.connect('bot_database.db')
+    c = conn.cursor()
+    c.execute('INSERT OR IGNORE INTO admins (user_id) VALUES (?)', (user_id,))
+    conn.commit()
+    conn.close()
+
+def remove_admin(user_id):
+    if user_id == ADMIN_ID: return  # ادمین اصلی را نمی‌توان حذف کرد
+    conn = sqlite3.connect('bot_database.db')
+    c = conn.cursor()
+    c.execute('DELETE FROM admins WHERE user_id = ?', (user_id,))
+    conn.commit()
+    conn.close()
 
 def get_average_rating(callback):
     conn = sqlite3.connect('bot_database.db')
@@ -181,7 +208,7 @@ def init_default_buttons():
 init_default_buttons()
 
 # ==========================================
-# 4. ساخت کیبورد و توابع کمکی
+# 4. ساخت کیبورد
 # ==========================================
 def build_keyboard(parent, show_back=True):
     buttons = get_buttons(parent)
@@ -427,7 +454,7 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 7. پنل ادمین
+# 7. پنل ادمین هوشمند (با قابلیت مدیریت ادمین‌ها)
 # ==========================================
 SUB_MENUS = {
     "main": "منوی اصلی",
@@ -438,6 +465,9 @@ SUB_MENUS = {
     "sub_vip": "زیرمنوی VIP"
 }
 
+def is_admin_router(user_id):
+    return is_admin(user_id)
+
 def build_admin_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📊 آمار ربات", callback_data="admin_stats")],
@@ -445,6 +475,7 @@ def build_admin_main_keyboard():
         [InlineKeyboardButton(text="📎 مدیریت فایل‌های دکمه‌ها", callback_data="admin_files")],
         [InlineKeyboardButton(text="🔒 مدیریت قفل محتوا", callback_data="admin_locks")],
         [InlineKeyboardButton(text="📢 ارسال اطلاعیه به همه", callback_data="admin_broadcast")],
+        [InlineKeyboardButton(text="👑 مدیریت ادمین‌ها (افزودن/حذف)", callback_data="admin_manage")],
         [InlineKeyboardButton(text="💬 پشتیبانی و پاسخ به کاربران", callback_data="admin_support")]
     ])
 
@@ -456,7 +487,9 @@ def build_admin_submenu_keyboard():
 
 @main_router.message(Command("admin"))
 async def admin_panel(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ شما دسترسی به پنل مدیریت ندارید!")
+        return
     await message.answer(
         "👑 *پنل مدیریت حرفه‌ای*\n\nبه بخش مدیریت ربات خود خوش آمدید. یکی از گزینه‌های زیر را انتخاب کنید:",
         reply_markup=build_admin_main_keyboard(),
@@ -465,20 +498,20 @@ async def admin_panel(message: Message):
 
 @main_router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     total = get_total_users()
     await callback.message.answer(f"📊 *آمار ربات*\n\n👥 تعداد کل کاربران: *{total}* نفر", parse_mode="Markdown")
     await callback.answer()
 
 @main_router.callback_query(F.data == "admin_edit_menu")
 async def admin_edit_menu_start(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     await callback.message.answer("📂 *کدام منو را می‌خواهید ویرایش کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
     await callback.answer()
 
 @main_router.callback_query(F.data.startswith("adm_menu_"))
 async def admin_edit_select_menu(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     parent = callback.data.replace("adm_menu_", "")
     buttons = get_buttons(parent)
     if not buttons:
@@ -493,7 +526,7 @@ async def admin_edit_select_menu(callback: CallbackQuery, state: FSMContext):
 
 @main_router.callback_query(F.data.startswith("edit_"))
 async def admin_edit_selected(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     callback_data = callback.data.replace("edit_", "")
     await state.set_state(AdminState.waiting_for_new_text)
     await state.update_data(target_callback=callback_data)
@@ -502,7 +535,7 @@ async def admin_edit_selected(callback: CallbackQuery, state: FSMContext):
 
 @main_router.message(AdminState.waiting_for_new_text)
 async def admin_save_text(message: Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     data = await state.get_data()
     update_button_text(data['target_callback'], message.text)
     await state.clear()
@@ -510,13 +543,13 @@ async def admin_save_text(message: Message, state: FSMContext):
 
 @main_router.callback_query(F.data == "admin_files")
 async def admin_files_start(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     await callback.message.answer("📂 *برای کدام منو می‌خواهید فایل آپلود کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
     await callback.answer()
 
 @main_router.callback_query(F.data.startswith("adm_menu_"))
 async def admin_file_select_menu(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     parent = callback.data.replace("adm_menu_", "")
     buttons = get_buttons(parent)
     if not buttons:
@@ -531,7 +564,7 @@ async def admin_file_select_menu(callback: CallbackQuery, state: FSMContext):
 
 @main_router.callback_query(F.data.startswith("upload_"))
 async def admin_upload_selected(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     callback_data = callback.data.replace("upload_", "")
     await state.set_state(AdminState.waiting_for_file)
     await state.update_data(target_callback=callback_data)
@@ -540,7 +573,7 @@ async def admin_upload_selected(callback: CallbackQuery, state: FSMContext):
 
 @main_router.message(AdminState.waiting_for_file)
 async def admin_save_file(message: Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     if not message.document:
         await message.answer("❌ لطفاً یک فایل بفرستید.")
         return
@@ -551,13 +584,13 @@ async def admin_save_file(message: Message, state: FSMContext):
 
 @main_router.callback_query(F.data == "admin_locks")
 async def admin_locks_start(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     await callback.message.answer("🔒 *کدام منو را می‌خواهید قفل/باز کنید؟*", reply_markup=build_admin_submenu_keyboard(), parse_mode="Markdown")
     await callback.answer()
 
 @main_router.callback_query(F.data.startswith("adm_menu_"))
 async def admin_lock_select_menu(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     parent = callback.data.replace("adm_menu_", "")
     buttons = get_buttons(parent)
     if not buttons:
@@ -572,7 +605,7 @@ async def admin_lock_select_menu(callback: CallbackQuery):
 
 @main_router.callback_query(F.data.startswith("toggle_"))
 async def admin_toggle_lock(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     callback_data = callback.data.replace("toggle_", "")
     content, _, current_lock = get_button_content(callback_data)
     new_lock = 0 if current_lock else 1
@@ -583,14 +616,14 @@ async def admin_toggle_lock(callback: CallbackQuery):
 
 @main_router.callback_query(F.data == "admin_broadcast")
 async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     await callback.message.answer("📢 *ارسال اطلاعیه*\n\nلطفاً متن اطلاعیه را بفرستید. اگر همراه با عکس/فایل است، آن را با کپشن بفرستید.\n\nبرای لغو: /cancel")
     await state.set_state(AdminState.waiting_for_new_text)
     await callback.answer()
 
 @main_router.message(AdminState.waiting_for_new_text)
 async def admin_send_broadcast(message: Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     users = get_all_users()
     count = 0
     failed = 0
@@ -612,9 +645,60 @@ async def admin_send_broadcast(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(f"✅ ارسال کامل شد!\nموفق: {count}\nناموفق: {failed}")
 
+@main_router.callback_query(F.data == "admin_manage")
+async def admin_manage_panel(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id): return
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ افزودن ادمین جدید", callback_data="admin_add")],
+        [InlineKeyboardButton(text="➖ حذف ادمین", callback_data="admin_remove")]
+    ])
+    await callback.message.answer("👑 *مدیریت ادمین‌ها*\n\nیکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=keyboard, parse_mode="Markdown")
+    await callback.answer()
+
+@main_router.callback_query(F.data == "admin_add")
+async def admin_add_start(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
+    await callback.message.answer("➕ *افزودن ادمین جدید*\n\nلطفاً آیدی عددی کاربر مورد نظر را بفرستید:", reply_markup=back_btn())
+    await state.set_state(AdminState.waiting_for_new_text)  # استفاده مجدد از استیت
+    await state.update_data(action="add_admin")
+    await callback.answer()
+
+@main_router.callback_query(F.data == "admin_remove")
+async def admin_remove_start(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
+    await callback.message.answer("➖ *حذف ادمین*\n\nلطفاً آیدی عددی کاربر مورد نظر را بفرستید. (نکته: ادمین اصلی قابل حذف نیست)", reply_markup=back_btn())
+    await state.set_state(AdminState.waiting_for_new_text)
+    await state.update_data(action="remove_admin")
+    await callback.answer()
+
+@main_router.message(AdminState.waiting_for_new_text)
+async def admin_manage_process(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    data = await state.get_data()
+    action = data.get("action")
+    try:
+        target_id = int(message.text.strip())
+        if action == "add_admin":
+            if is_admin(target_id):
+                await message.answer("⚠️ این کاربر هم‌اکنون ادمین است.")
+            else:
+                add_admin(target_id)
+                await message.answer(f"✅ کاربر با آیدی `{target_id}` با موفقیت به لیست ادمین‌ها اضافه شد!")
+        elif action == "remove_admin":
+            if target_id == ADMIN_ID:
+                await message.answer("⛔ شما نمی‌توانید ادمین اصلی را حذف کنید!")
+            elif not is_admin(target_id):
+                await message.answer("⚠️ این کاربر ادمین نیست.")
+            else:
+                remove_admin(target_id)
+                await message.answer(f"✅ کاربر با آیدی `{target_id}` از لیست ادمین‌ها حذف شد!")
+    except ValueError:
+        await message.answer("❌ لطفاً یک آیدی عددی معتبر بفرستید.")
+    await state.clear()
+
 @main_router.callback_query(F.data == "admin_support")
 async def admin_support_panel(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     await callback.message.answer("💬 *بخش پشتیبانی*\n\nوقتی کاربری به شما پیام می‌دهد، زیر پیام او در این ربات یک دکمه `پاسخ` ظاهر می‌شود. با کلیک روی آن می‌توانید پاسخ دهید.", parse_mode="Markdown")
     await callback.answer()
 
