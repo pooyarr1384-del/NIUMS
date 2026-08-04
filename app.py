@@ -246,6 +246,28 @@ main_router = Router()
 async def start_cmd(message: Message):
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     
+    # بررسی عضویت در کانال
+    is_member = await check_membership(message.bot, message.from_user.id)
+    
+    if not is_member:
+        # اگر عضو نیست، فقط دکمه عضویت را نشان بده
+        force_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📢 عضویت در کانال", url=f"https://t.me/{CHANNEL_ID}")],
+            [InlineKeyboardButton(text="🔄 بررسی عضویت", callback_data="force_check")]
+        ])
+        await message.answer_photo(
+            photo="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?q=80&w=1000&auto=format&fit=crop",
+            caption=(
+                "🔒 *دسترسی محدود!*\n\n"
+                "برای استفاده از ربات، ابتدا باید در کانال ما عضو شوید.\n"
+                "پس از عضویت، دکمه بررسی را بزنید."
+            ),
+            reply_markup=force_keyboard,
+            parse_mode="Markdown"
+        )
+        return
+    
+    # اگر عضو است، منوی اصلی را نشان بده
     caption_text = (
         f"🌸 *سلام {message.from_user.first_name} عزیز!*\n\n"
         "👩‍⚕️ به *آکادمی پرستاری* خوش آمدید!\n"
@@ -263,6 +285,33 @@ async def start_cmd(message: Message):
         reply_markup=build_keyboard("main"),
         parse_mode="Markdown"
     )
+
+# هندلر دکمه بررسی عضویت
+@main_router.callback_query(F.data == "force_check")
+async def force_check_handler(callback: CallbackQuery):
+    is_member = await check_membership(callback.bot, callback.from_user.id)
+    
+    if not is_member:
+        force_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📢 عضویت در کانال", url=f"https://t.me/{CHANNEL_ID}")],
+            [InlineKeyboardButton(text="🔄 بررسی عضویت", callback_data="force_check")]
+        ])
+        await callback.message.edit_caption(
+            caption="❌ شما هنوز عضو کانال نشده‌اید! لطفاً ابتدا عضو شوید.",
+            reply_markup=force_keyboard,
+            parse_mode="Markdown"
+        )
+        await callback.answer()
+        return
+    
+    await callback.message.edit_caption(
+        caption=(
+            "✅ عضویت شما تایید شد!\n\n"
+            "✨ برای مشاهده منوی ربات، مجدداً `/start` را بفرستید."
+        ),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
 
 @main_router.callback_query(F.data == "back_to_main")
 async def go_back(callback: CallbackQuery):
@@ -299,6 +348,20 @@ async def handle_dynamic_buttons(callback: CallbackQuery):
         await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
     else:
         await callback.message.answer(content, parse_mode="Markdown")
+    await callback.answer()
+
+@main_router.callback_query(F.data.startswith("check_"))
+async def check_membership_after_join(callback: CallbackQuery):
+    data = callback.data.replace("check_", "")
+    is_member = await check_membership(callback.bot, callback.from_user.id)
+    if is_member:
+        content, file_id, _ = get_button_content(data)
+        if file_id:
+            await callback.message.answer_document(document=file_id, caption=content, parse_mode="Markdown")
+        else:
+            await callback.message.answer(content, parse_mode="Markdown")
+    else:
+        await callback.message.answer("❌ شما هنوز عضو کانال نشده‌اید! لطفاً ابتدا عضو شوید.")
     await callback.answer()
 
 # ==========================================
