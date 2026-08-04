@@ -225,13 +225,6 @@ def build_keyboard(parent, show_back=True):
         keyboard.append([InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-async def check_membership(bot, user_id):
-    try:
-        member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
-        return member.status not in ["left", "kicked"]
-    except:
-        return False
-
 def back_btn():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_to_main")]
@@ -245,25 +238,6 @@ main_router = Router()
 @main_router.message(Command("start"))
 async def start_cmd(message: Message):
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
-    
-    is_member = await check_membership(message.bot, message.from_user.id)
-    
-    if not is_member:
-        force_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📢 عضویت در کانال", url=f"https://t.me/{CHANNEL_ID}")],
-            [InlineKeyboardButton(text="🔄 بررسی عضویت", callback_data="force_check")]
-        ])
-        await message.answer_photo(
-            photo="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?q=80&w=1000&auto=format&fit=crop",
-            caption=(
-                "🔒 *دسترسی محدود!*\n\n"
-                "برای استفاده از ربات، ابتدا باید در کانال ما عضو شوید.\n"
-                "پس از عضویت، دکمه بررسی را بزنید."
-            ),
-            reply_markup=force_keyboard,
-            parse_mode="Markdown"
-        )
-        return
     
     caption_text = (
         f"🌸 *سلام {message.from_user.first_name} عزیز!*\n\n"
@@ -282,32 +256,6 @@ async def start_cmd(message: Message):
         reply_markup=build_keyboard("main"),
         parse_mode="Markdown"
     )
-
-@main_router.callback_query(F.data == "force_check")
-async def force_check_handler(callback: CallbackQuery):
-    is_member = await check_membership(callback.bot, callback.from_user.id)
-    
-    if not is_member:
-        force_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📢 عضویت در کانال", url=f"https://t.me/{CHANNEL_ID}")],
-            [InlineKeyboardButton(text="🔄 بررسی عضویت", callback_data="force_check")]
-        ])
-        await callback.message.edit_caption(
-            caption="❌ شما هنوز عضو کانال نشده‌اید! لطفاً ابتدا عضو شوید.",
-            reply_markup=force_keyboard,
-            parse_mode="Markdown"
-        )
-        await callback.answer()
-        return
-    
-    await callback.message.edit_caption(
-        caption=(
-            "✅ عضویت شما تایید شد!\n\n"
-            "✨ برای مشاهده منوی ربات، مجدداً `/start` را بفرستید."
-        ),
-        parse_mode="Markdown"
-    )
-    await callback.answer()
 
 @main_router.callback_query(F.data == "back_to_main")
 async def go_back(callback: CallbackQuery):
@@ -727,7 +675,7 @@ async def main():
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
     dp.include_router(main_router)
-    await dp.start_polling(bot, skip_updates=True)
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
