@@ -246,11 +246,9 @@ main_router = Router()
 async def start_cmd(message: Message):
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     
-    # بررسی عضویت در کانال
     is_member = await check_membership(message.bot, message.from_user.id)
     
     if not is_member:
-        # اگر عضو نیست، فقط دکمه عضویت را نشان بده
         force_keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📢 عضویت در کانال", url=f"https://t.me/{CHANNEL_ID}")],
             [InlineKeyboardButton(text="🔄 بررسی عضویت", callback_data="force_check")]
@@ -267,7 +265,6 @@ async def start_cmd(message: Message):
         )
         return
     
-    # اگر عضو است، منوی اصلی را نشان بده
     caption_text = (
         f"🌸 *سلام {message.from_user.first_name} عزیز!*\n\n"
         "👩‍⚕️ به *آکادمی پرستاری* خوش آمدید!\n"
@@ -286,7 +283,6 @@ async def start_cmd(message: Message):
         parse_mode="Markdown"
     )
 
-# هندلر دکمه بررسی عضویت
 @main_router.callback_query(F.data == "force_check")
 async def force_check_handler(callback: CallbackQuery):
     is_member = await check_membership(callback.bot, callback.from_user.id)
@@ -404,9 +400,8 @@ async def handle_calc_input(message: Message):
     numbers = list(map(float, message.text.split()))
     
     if len(numbers) == 2:
-        # محاسبه BMI
         weight, height = numbers[0], numbers[1]
-        if height > 3:  # اگر قد به سانتی‌متر وارد شده باشد
+        if height > 3:
             height = height / 100
         bmi = weight / (height ** 2)
         category = "لاغر" if bmi < 18.5 else "نرمال" if bmi < 25 else "اضافه وزن" if bmi < 30 else "چاق"
@@ -420,7 +415,6 @@ async def handle_calc_input(message: Message):
         )
 
     elif len(numbers) == 3:
-        # محاسبه دوز دارو
         dose_per_kg, weight, concentration = numbers[0], numbers[1], numbers[2]
         total_dose = dose_per_kg * weight
         volume_ml = total_dose / concentration
@@ -481,7 +475,7 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 7. پنل ادمین
+# 7. پنل ادمین (رفع شده: قفل‌ها دیگر درخواست متن نمی‌کنند)
 # ==========================================
 SUB_MENUS = {
     "main": "منوی اصلی",
