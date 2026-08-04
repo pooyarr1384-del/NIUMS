@@ -21,6 +21,8 @@ class AdminReplyState(StatesGroup):
 class AdminState(StatesGroup):
     waiting_for_new_text = State()
     waiting_for_file = State()
+    waiting_for_new_admin = State()
+    waiting_for_remove_admin = State()
 
 # ==========================================
 # 2. دیتابیس
@@ -423,7 +425,7 @@ async def about_us(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# 7. پنل ادمین
+# 7. پنل ادمین (با ایالت‌های جداشده)
 # ==========================================
 SUB_MENUS = {
     "main": "منوی اصلی",
@@ -625,7 +627,7 @@ async def admin_manage_panel(callback: CallbackQuery):
 async def admin_add_start(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id): return
     await callback.message.answer("➕ *افزودن ادمین جدید*\n\nلطفاً آیدی عددی کاربر مورد نظر را بفرستید:", reply_markup=back_btn())
-    await state.set_state(AdminState.waiting_for_new_text)
+    await state.set_state(AdminState.waiting_for_new_admin)
     await state.update_data(action="add_admin")
     await callback.answer()
 
@@ -633,31 +635,36 @@ async def admin_add_start(callback: CallbackQuery, state: FSMContext):
 async def admin_remove_start(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id): return
     await callback.message.answer("➖ *حذف ادمین*\n\nلطفاً آیدی عددی کاربر مورد نظر را بفرستید. (نکته: ادمین اصلی قابل حذف نیست)", reply_markup=back_btn())
-    await state.set_state(AdminState.waiting_for_new_text)
+    await state.set_state(AdminState.waiting_for_remove_admin)
     await state.update_data(action="remove_admin")
     await callback.answer()
 
-@main_router.message(AdminState.waiting_for_new_text)
-async def admin_manage_process(message: Message, state: FSMContext):
+@main_router.message(AdminState.waiting_for_new_admin)
+async def admin_add_process(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    data = await state.get_data()
-    action = data.get("action")
     try:
         target_id = int(message.text.strip())
-        if action == "add_admin":
-            if is_admin(target_id):
-                await message.answer("⚠️ این کاربر هم‌اکنون ادمین است.")
-            else:
-                add_admin(target_id)
-                await message.answer(f"✅ کاربر با آیدی `{target_id}` با موفقیت به لیست ادمین‌ها اضافه شد!")
-        elif action == "remove_admin":
-            if target_id == ADMIN_ID:
-                await message.answer("⛔ شما نمی‌توانید ادمین اصلی را حذف کنید!")
-            elif not is_admin(target_id):
-                await message.answer("⚠️ این کاربر ادمین نیست.")
-            else:
-                remove_admin(target_id)
-                await message.answer(f"✅ کاربر با آیدی `{target_id}` از لیست ادمین‌ها حذف شد!")
+        if is_admin(target_id):
+            await message.answer("⚠️ این کاربر هم‌اکنون ادمین است.")
+        else:
+            add_admin(target_id)
+            await message.answer(f"✅ کاربر با آیدی `{target_id}` با موفقیت به لیست ادمین‌ها اضافه شد!")
+    except ValueError:
+        await message.answer("❌ لطفاً یک آیدی عددی معتبر بفرستید.")
+    await state.clear()
+
+@main_router.message(AdminState.waiting_for_remove_admin)
+async def admin_remove_process(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    try:
+        target_id = int(message.text.strip())
+        if target_id == ADMIN_ID:
+            await message.answer("⛔ شما نمی‌توانید ادمین اصلی را حذف کنید!")
+        elif not is_admin(target_id):
+            await message.answer("⚠️ این کاربر ادمین نیست.")
+        else:
+            remove_admin(target_id)
+            await message.answer(f"✅ کاربر با آیدی `{target_id}` از لیست ادمین‌ها حذف شد!")
     except ValueError:
         await message.answer("❌ لطفاً یک آیدی عددی معتبر بفرستید.")
     await state.clear()
