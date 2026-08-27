@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: nursing-bot
+    name: NIUMS1
     runtime: python
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python app.py"
